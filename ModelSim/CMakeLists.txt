@@ -13,11 +13,13 @@ set(SOURCES
     main.cpp
     widget.cpp
     widget.h
+    imagelabel.cpp
+    imagelabel.h
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)
 qt6_wrap_ui(UI_FORMS_H) # Not strictly needed here as we don't have .ui files
-qt6_wrap_cpp(MOC_HEADERS widget.h) # Processes the Q_OBJECT macro
+qt6_wrap_cpp(MOC_HEADERS widget.h imagelabel.h) # Processes the Q_OBJECT macro
 
 # Add your executable
 add_executable(FortranImageGUI ${SOURCES} ${MOC_HEADERS} ${UI_FORMS_H})

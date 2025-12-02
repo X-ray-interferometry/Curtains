@@ -7,10 +7,14 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QGraphicsView>
+#include <QGraphicsScene>
+#include <QListWidget>
+#include <QPainterPath>
 
-extern "C" {
-    void reltrans(unsigned char* imageData, int width, int height);
-}
+//extern "C" {
+//    void reltrans(unsigned char* imageData, int width, int height);
+//}
 
 class Widget : public QWidget {
     Q_OBJECT // Required for Qt's signal/slot mechanism
@@ -25,53 +29,38 @@ private slots:
 public slots:
     void zoomIn();  // Zoom in the image
     void zoomOut(); // Zoom out the image
+    void toggleLayerVisibility(QListWidgetItem *item); // Toggle layer visibility
+    void saveImage(); // Save the current image
 
 private:
-    ImageLabel *imageLabel;
     QComboBox *modelSelector;
     QPushButton *generateButton;
+    QPushButton *saveButton;
+    QGraphicsView *graphicsView; // Replace QLabel with QGraphicsView
+    QGraphicsScene *graphicsScene; // Scene to hold vectorized content
+    QListWidget *layersList; // List widget to display layers
+    QPixmap currentPixmap; // Stores the current image being drawn on
+    QPoint lastPoint;      // Tracks the last point for drawing
+    QPainterPath drawingPath; // Stores the vectorized lines
+    QGraphicsPathItem *drawingPathItem; // Item to represent the drawn paths
+    bool isDrawing = false; // Tracks whether the user is currently drawing
 
-    enum InteractionMode { ZoomMode, DragMode }; // Define interaction modes
-    InteractionMode currentMode = ZoomMode;     // Default to ZoomMode
-
-    void setZoomMode(); // Switch to zoom mode
-    void setDragMode(); // Switch to drag mode
     void resetView();  // Reset view to full image
-
-    QPixmap originalPixmap;
-    QRect viewingWindow; // Tracks the currently visible portion of the image
-    QPixmap displayedPixmap;
-    double zoomFactor = 1.0; // Zoom factor (1.0 = 100%)
-
-    QPoint dragStartPos; // Track the starting position of the drag
-    QPoint currentOffset; // Track the current offset of the image
-    bool isDragging = false; // Track whether the user is dragging
-
-    void adjustViewToZoom(); // Adjust the view based on the zoom factor
-    void zoomToSelection(); // Zoom into the selected rectangle
-
-    // Variables for box selection
-    QRect selectionRect; // Stores the selected rectangle
-    bool isSelecting = false; // Tracks whether the user is currently selecting 
 
     // Placeholder C++ functions representing Fortran subroutines
     // In a real app, these would be `extern "C"` declarations
     // that link to your compiled Fortran code using ISO_C_BINDING.
-    void callFortranModelA(unsigned char* imageData, int width, int height);
-    void callFortranModelB(unsigned char* imageData, int width, int height);
-    void callFortranModelC(unsigned char* imageData, int width, int height);
+    void generateSineWave(QPainterPath &path, int width, int height);
+    void callReltrans(unsigned char* imageData, int width, int height);
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 300;
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
-
 };
 
 #endif // MYWIDGET_H

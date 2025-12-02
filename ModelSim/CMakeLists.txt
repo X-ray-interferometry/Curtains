@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(FortranImageGUI LANGUAGES CXX)
+project(FortranImageGUI LANGUAGES CXX Fortran)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,6 +20,10 @@ set(SOURCES
 # Tell Qt to process the header for moc (Meta-Object Compiler)
 qt6_wrap_ui(UI_FORMS_H) # Not strictly needed here as we don't have .ui files
 qt6_wrap_cpp(MOC_HEADERS widget.h imagelabel.h) # Processes the Q_OBJECT macro
+
+# Add Fortran library
+# add_library(FortranModels SHARED IMPORTED)
+# set_target_properties(FortranModels PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libfortranmodels.so)
 
 # Add your executable
 add_executable(FortranImageGUI ${SOURCES} ${MOC_HEADERS} ${UI_FORMS_H})

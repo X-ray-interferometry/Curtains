@@ -23,22 +23,43 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     layersList->setAlternatingRowColors(true);
 
     modelSelector = new QComboBox(this);
+    modelSelector->addItem("Blank");
     modelSelector->addItem("Sine Wave");
     modelSelector->addItem("Reltrans");
 
-    generateButton = new QPushButton("Generate Image", this);
-
+    //Buttons
+    generateButton = new QPushButton("Base Model", this);
     QPushButton *zoomInButton = new QPushButton("Zoom In", this);
+    zoomInButton->setToolTip("Zoom In (Ctrl + '+')");
     QPushButton *zoomOutButton = new QPushButton("Zoom Out", this);
+    zoomOutButton->setToolTip("Zoom Out (Ctrl + '-')");
     QPushButton *resetViewButton = new QPushButton("Reset View", this);
     QPushButton *saveButton = new QPushButton("Save Image", this);
+    QPushButton *sliderModeButton = new QPushButton("Energy slider mode", this);
 
-    // Connect mode buttons
+    // Sliders
+
+    QSlider *slider = new QSlider(Qt::Horizontal, this);
+    slider->setToolTip("Adjust Energy range");
+    slider->setRange(0, 10); // Set the range of the slider
+    slider->setValue(5);     // Set the initial value of the slider
+
+    // Connect slider value changes to the appropriate slot
+    connect(slider, &QSlider::valueChanged, this, &Widget::handleSliderValueChanged);
+    connect(sliderModeButton, &QPushButton::clicked, this, &Widget::sliderModeChange);
+
+    // Connect scene  buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(zoomInButton);
     buttonLayout->addWidget(zoomOutButton);
     buttonLayout->addWidget(resetViewButton);
 
+    // Horizontal layout for energy slider and its button
+    QHBoxLayout *sliderLayout = new QHBoxLayout();
+    sliderLayout->addWidget(sliderModeButton);
+    sliderLayout->addWidget(slider);
+
+    // Horizontal layout for graphics view and layers list
     QHBoxLayout *canvasLayout = new QHBoxLayout();
     canvasLayout->addWidget(graphicsView);
     canvasLayout->addWidget(layersList);
@@ -49,6 +70,7 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     mainLayout->addWidget(generateButton);
     mainLayout->addLayout(buttonLayout);
     mainLayout->addLayout(canvasLayout);
+    mainLayout->addLayout(sliderLayout);
     mainLayout->addWidget(saveButton);
 
     setLayout(mainLayout);
@@ -86,10 +108,13 @@ void Widget::updateImage() {
     QPainterPath modelPath;
     int selectedIndex = modelSelector->currentIndex();
     switch (selectedIndex) {
-        case 0: // Sine Wave
+        case 0: // Blank
+            blankImage(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
+            break;
+        case 1: // Sine Wave
             generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
             break;
-        case 1: // Reltrans (placeholder)
+        case 2: // Reltrans (placeholder)
             qWarning() << "Reltrans model not implemented for vectorized graphics.";
             return;
         default:
@@ -130,7 +155,7 @@ void Widget::zoomOut() {
 
 void Widget::keyPressEvent(QKeyEvent *event) {
     if (event->modifiers() & Qt::ControlModifier) {
-        if (event->key() == Qt::Key_Plus || event->key() == Qt::Key_Equal) {
+        if (event->key() == Qt::Key_Plus) {
             zoomIn();
         } else if (event->key() == Qt::Key_Minus) {
             zoomOut();
@@ -214,6 +239,29 @@ void Widget::saveImage() {
     }
 }
 
+// Slider functionality
+
+void Widget::handleSliderValueChanged(int value) {
+    qDebug() << "Slider value changed to:" << value;
+
+    // Example: Adjust the opacity of the graphicsScene
+    qreal opacity = 10*value / 100.0; // Convert slider value to a range of 0.0 to 1.0
+    for (auto item : graphicsScene->items()) {
+        item->setOpacity(opacity); // Set the opacity of each item in the scene
+    }
+}
+
+void Widget::sliderModeChange() {
+    qDebug() << "Slider mode change button clicked.";
+    // For demonstration, let's just toggle the slider's enabled state
+    if (slider->isEnabled()) {
+        slider->setEnabled(false);
+    } else {
+        slider->setEnabled(true);
+    }
+    // Intention is to switch between energy range, and single energy bin modes
+}
+
 // Image generators
 
 void Widget::generateSineWave(QPainterPath &path, int width, int height) {
@@ -222,6 +270,11 @@ void Widget::generateSineWave(QPainterPath &path, int width, int height) {
         double y = height / 2 + 50 * sin(x * 0.1); // Sine wave formula
         path.lineTo(x, y);
     }
+}
+
+void Widget::blankImage(QPainterPath &path, int width, int height) {
+    // Generates a blank image (no drawing)
+    qDebug() << "Generating blank image.";
 }
 
 void Widget::callReltrans(unsigned char* imageData, int width, int height) {

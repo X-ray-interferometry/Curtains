@@ -24,12 +24,14 @@ public:
 
 private slots:
     void updateImage(); // Slot to handle button click and image update
+    void handleSliderValueChanged(int value); // Slot to handle slider value changes
 
 public slots:
     void zoomIn();  // Zoom in the image
     void zoomOut(); // Zoom out the image
     void toggleLayerVisibility(QListWidgetItem *item); // Toggle layer visibility
     void saveImage(); // Save the current image
+    void sliderModeChange(); // Change slider mode between energy range and single energy bin
 
 private:
     QComboBox *modelSelector;

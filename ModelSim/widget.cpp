@@ -199,7 +199,7 @@ void Widget::saveImage() {
     // Create a pixmap to render the scene
     QRectF sceneRect = graphicsScene->sceneRect(); // Get the scene's bounding rectangle
     QPixmap pixmap(sceneRect.width(), sceneRect.height());
-    pixmap.fill(Qt::white); // Fill the pixmap with a white background
+    pixmap.fill(Qt::black); // Fill the pixmap with a black background (0 photons)
 
     // Render the scene onto the pixmap
     QPainter painter(&pixmap);

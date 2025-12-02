@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(FortranImageGUI LANGUAGES CXX Fortran)
+project(ModelSim LANGUAGES CXX Fortran)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,10 +26,10 @@ qt6_wrap_cpp(MOC_HEADERS widget.h imagelabel.h) # Processes the Q_OBJECT macro
 # set_target_properties(FortranModels PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libfortranmodels.so)
 
 # Add your executable
-add_executable(FortranImageGUI ${SOURCES} ${MOC_HEADERS} ${UI_FORMS_H})
+add_executable(ModelSim ${SOURCES} ${MOC_HEADERS} ${UI_FORMS_H})
 
 # Link necessary Qt libraries
-target_link_libraries(FortranImageGUI PRIVATE Qt6::Widgets)
+target_link_libraries(ModelSim PRIVATE Qt6::Widgets)
 
 # --- FORTRAN INTEROPERABILITY (Placeholder) ---
 # In a real scenario, you would compile your Fortran code into a static or shared library
@@ -37,7 +37,7 @@ target_link_libraries(FortranImageGUI PRIVATE Qt6::Widgets)
 
 # Example if you had a Fortran static library named 'libfortranmodels.a'
 # add_library(fortranmodels STATIC fortran_src/my_fortran_module.f90) # You'd define this
-# target_link_libraries(FortranImageGUI PRIVATE fortranmodels) # Link it
+# target_link_libraries(ModelSim PRIVATE fortranmodels) # Link it
 
 # Or, if Fortran produces an object file directly:
 # add_custom_command(
@@ -45,4 +45,4 @@ target_link_libraries(FortranImageGUI PRIVATE Qt6::Widgets)
 #     COMMAND gfortran -c ${CMAKE_CURRENT_SOURCE_DIR}/fortran_src/my_fortran_module.f90 -o ${CMAKE_BINARY_DIR}/fortran_src/my_fortran_module.o
 #     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fortran_src/my_fortran_module.f90
 # )
-# target_link_libraries(FortranImageGUI PRIVATE ${CMAKE_BINARY_DIR}/fortran_src/my_fortran_module.o)
+# target_link_libraries(ModelSim PRIVATE ${CMAKE_BINARY_DIR}/fortran_src/my_fortran_module.o)

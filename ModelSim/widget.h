@@ -1,7 +1,6 @@
 #ifndef WIDGET_H
 #define WIDGET_H
 
-#include "imagelabel.h"
 #include <QWidget>
 #include <QLabel>
 #include <QComboBox>

@@ -4,6 +4,9 @@ project(ModelSim LANGUAGES CXX Fortran)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON) # Ensure moc is enabled
+set(CMAKE_AUTORCC ON) # Ensure resource files are processed (if any)
+set(CMAKE_AUTOUIC ON) # Ensure UI files are processed (if any)
 
 # Find Qt6 components
 find_package(Qt6 COMPONENTS Widgets REQUIRED)
@@ -13,6 +16,8 @@ set(SOURCES
     main.cpp
     widget.cpp
     widget.h
+    QRangeSlider.cpp
+    QRangeSlider.hpp
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)

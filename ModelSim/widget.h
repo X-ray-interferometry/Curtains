@@ -10,6 +10,7 @@
 #include <QGraphicsScene>
 #include <QListWidget>
 #include <QPainterPath>
+#include "QRangeSlider.hpp"
 
 //extern "C" {
 //    void reltrans(unsigned char* imageData, int width, int height);
@@ -25,6 +26,8 @@ public:
 private slots:
     void updateImage(); // Slot to handle button click and image update
     void handleSliderValueChanged(int value); // Slot to handle slider value changes
+    void handleLowerValueChanged(int value); // Slot for range slider lower value changes
+    void handleUpperValueChanged(int value); // Slot for range slider upper value changes
 
 public slots:
     void zoomIn();  // Zoom in the image
@@ -37,6 +40,9 @@ private:
     QComboBox *modelSelector;
     QPushButton *generateButton;
     QPushButton *saveButton;
+    QPushButton *sliderModeButton;
+    QSlider *slider;
+    QRangeSlider *rangeSlider;
     QGraphicsView *graphicsView; // Replace QLabel with QGraphicsView
     QGraphicsScene *graphicsScene; // Scene to hold vectorized content
     QListWidget *layersList; // List widget to display layers
@@ -53,9 +59,11 @@ private:
     // that link to your compiled Fortran code using ISO_C_BINDING.
     void generateSineWave(QPainterPath &path, int width, int height);
     void callReltrans(unsigned char* imageData, int width, int height);
+    void blankImage(QPainterPath &path, int width, int height);
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 300;
+    int sliderMode = 0; // 0: single energy bin, 1: energy range
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

@@ -1,5 +1,4 @@
 #include "widget.h"
-#include "QRangeSlider.hpp"
 #include <QImage>
 #include <QPixmap>
 #include <QKeyEvent>
@@ -44,17 +43,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     slider->setToolTip("Adjust Energy range");
     slider->setRange(0, 10); // Set the range of the slider
     slider->setValue(5);     // Set the initial value of the slider
-    rangeSlider = new QRangeSlider(this); // Initialize the range slider
-    rangeSlider->setToolTip("Adjust Energy Range");
-    rangeSlider->setMinimum(0); // Set the minimum value
-    rangeSlider->setMaximum(10); // Set the maximum value
-    rangeSlider->setLowValue(0); // Set the initial lower value
-    rangeSlider->setHighValue(10); // Set the initial upper value
-    //rangeSlider->hide(); // Initially hide the range slider
-
-    // Connect signals for range slider value changes
-    connect(rangeSlider, &QRangeSlider::lowValueChange, this, &Widget::handleLowerValueChanged);
-    connect(rangeSlider, &QRangeSlider::highValueChange, this, &Widget::handleUpperValueChanged);
 
     // Connect slider value changes to the appropriate slot
     connect(slider, &QSlider::valueChanged, this, &Widget::handleSliderValueChanged);
@@ -70,7 +58,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     QHBoxLayout *sliderLayout = new QHBoxLayout();
     sliderLayout->addWidget(sliderModeButton);
     sliderLayout->addWidget(slider);
-    sliderLayout->addWidget(rangeSlider);
 
     // Horizontal layout for graphics view and layers list
     QHBoxLayout *canvasLayout = new QHBoxLayout();
@@ -262,36 +249,6 @@ void Widget::handleSliderValueChanged(int value) {
     for (auto item : graphicsScene->items()) {
         item->setOpacity(opacity); // Set the opacity of each item in the scene
     }
-}
-
-void Widget::sliderModeChange() {
-    qDebug() << "Slider mode change button clicked.";
-    if (!slider || !rangeSlider) {
-        qWarning() << "One of the sliders is not initialized!";
-        return; // Prevent segmentation fault if either slider is null
-    }
-
-    if (sliderMode == 0) {
-        qDebug() << "Switching to energy range mode.";
-        slider->setVisible(false);
-        rangeSlider->setVisible(true);
-        sliderMode = 1; // Toggle mode
-    } else {
-        qDebug() << "Switched to single energy bin mode.";
-        rangeSlider->setVisible(false);
-        slider->setVisible(true);
-        sliderMode = 0; // Toggle mode
-    }
-}
-
-void Widget::handleLowerValueChanged(int value) {
-    qDebug() << "Range slider lower value changed to:" << value;
-    // Handle the lower value (e.g., update energy range)
-}
-
-void Widget::handleUpperValueChanged(int value) {
-    qDebug() << "Range slider upper value changed to:" << value;
-    // Handle the upper value (e.g., update energy range)
 }
 
 // Image generators

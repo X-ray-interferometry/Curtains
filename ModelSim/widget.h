@@ -10,7 +10,6 @@
 #include <QGraphicsScene>
 #include <QListWidget>
 #include <QPainterPath>
-#include "QRangeSlider.hpp"
 
 //extern "C" {
 //    void reltrans(unsigned char* imageData, int width, int height);
@@ -26,15 +25,12 @@ public:
 private slots:
     void updateImage(); // Slot to handle button click and image update
     void handleSliderValueChanged(int value); // Slot to handle slider value changes
-    void handleLowerValueChanged(int value); // Slot for range slider lower value changes
-    void handleUpperValueChanged(int value); // Slot for range slider upper value changes
 
 public slots:
     void zoomIn();  // Zoom in the image
     void zoomOut(); // Zoom out the image
     void toggleLayerVisibility(QListWidgetItem *item); // Toggle layer visibility
     void saveImage(); // Save the current image
-    void sliderModeChange(); // Change slider mode between energy range and single energy bin
 
 private:
     QComboBox *modelSelector;
@@ -63,7 +59,6 @@ private:
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 300;
-    int sliderMode = 0; // 0: single energy bin, 1: energy range
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

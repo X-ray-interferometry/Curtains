@@ -24,7 +24,8 @@ public:
 
 private slots:
     void updateImage(); // Slot to handle button click and image update
-    void handleSliderValueChanged(int value); // Slot to handle slider value changes
+    void handleSingleSliderValueChanged(int value); // Slot to handle slider value changes
+    void handleDoubleSliderRangeChanged(double low, double high); // Slot to handle double slider range changes
 
 public slots:
     void zoomIn();  // Zoom in the image
@@ -36,9 +37,10 @@ private:
     QComboBox *modelSelector;
     QPushButton *generateButton;
     QPushButton *saveButton;
-    QPushButton *sliderModeButton;
     QSlider *slider;
-    QRangeSlider *rangeSlider;
+    QSlider *lowRangeSlider;
+    QSlider *highRangeSlider;
+    QComboBox *sliderModeSelector;
     QGraphicsView *graphicsView; // Replace QLabel with QGraphicsView
     QGraphicsScene *graphicsScene; // Scene to hold vectorized content
     QListWidget *layersList; // List widget to display layers
@@ -56,6 +58,7 @@ private:
     void generateSineWave(QPainterPath &path, int width, int height);
     void callReltrans(unsigned char* imageData, int width, int height);
     void blankImage(QPainterPath &path, int width, int height);
+    void circle(QPainterPath &path, int centerX, int centerY, int radius);
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 300;
@@ -68,3 +71,54 @@ protected:
 };
 
 #endif // MYWIDGET_H
+
+#ifndef SINGLESLIDERWIDGET_H
+#define SINGLESLIDERWIDGET_H
+
+#include <QWidget>
+#include <QSlider>
+#include <QDoubleSpinBox>
+#include <QHBoxLayout>
+
+class SingleSliderWidget : public QWidget {
+    Q_OBJECT
+
+public:
+    explicit SingleSliderWidget(QWidget *parent = nullptr);
+
+signals:
+    void valueChanged(double value);
+
+private:
+    QSlider *slider;
+    QDoubleSpinBox *sliderValueBox;
+};
+
+#endif // SINGLESLIDERWIDGET_H
+
+#ifndef DOUBLESLIDERWIDGET_H
+#define DOUBLESLIDERWIDGET_H
+
+#include <QWidget>
+#include <QSlider>
+#include <QDoubleSpinBox>
+#include <QVBoxLayout>
+
+class DoubleSliderWidget : public QWidget {
+    Q_OBJECT
+
+public:
+    explicit DoubleSliderWidget(QWidget *parent = nullptr);
+
+signals:
+    void valueChanged(double value);
+    void rangeChanged(double low, double high);
+
+private:
+    QSlider *lowSlider;
+    QSlider *highSlider;
+    QDoubleSpinBox *lowSliderValueBox;
+    QDoubleSpinBox *highSliderValueBox;
+};
+
+#endif // DOUBLESLIDERWIDGET_H

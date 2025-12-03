@@ -16,8 +16,6 @@ set(SOURCES
     main.cpp
     widget.cpp
     widget.h
-    QRangeSlider.cpp
-    QRangeSlider.hpp
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)

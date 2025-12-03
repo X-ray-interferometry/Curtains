@@ -8,9 +8,96 @@
 #include <QGraphicsPathItem>
 #include <QDebug> 
 #include <QFileDialog>
+#include <QDoubleSpinBox>
+#include <QStackedLayout>
+
+SingleSliderWidget::SingleSliderWidget(QWidget *parent) : QWidget(parent) {
+    slider = new QSlider(Qt::Horizontal, this);
+    slider->setRange(0, 100);
+    slider->setValue(50);
+    slider->setTickInterval(1);
+    slider->setTickPosition(QSlider::TicksBelow);
+
+    sliderValueBox = new QDoubleSpinBox(this);
+    sliderValueBox->setRange(0.0, 10.0);
+    sliderValueBox->setValue(5.0);
+    sliderValueBox->setSingleStep(0.1);
+
+    // Connect slider and spin box
+    connect(slider, &QSlider::valueChanged, [this](int value) {
+        sliderValueBox->setValue(value * 0.1);
+        emit valueChanged(value * 0.1);
+    });
+    connect(sliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
+        slider->setValue(static_cast<int>(value * 10));
+    });
+
+    // Layout
+    QHBoxLayout *layout = new QHBoxLayout(this);
+    layout->addWidget(slider);
+    layout->addWidget(sliderValueBox);
+    setLayout(layout);
+}
+
+DoubleSliderWidget::DoubleSliderWidget(QWidget *parent) : QWidget(parent) {
+    lowSlider = new QSlider(Qt::Horizontal, this);
+    lowSlider->setRange(0, 100);
+    lowSlider->setValue(20);
+    lowSlider->setTickInterval(1);
+    lowSlider->setTickPosition(QSlider::TicksBelow);
+
+    highSlider = new QSlider(Qt::Horizontal, this);
+    highSlider->setRange(0, 100);
+    highSlider->setValue(80);
+    highSlider->setTickInterval(1);
+    highSlider->setTickPosition(QSlider::TicksBelow);
+
+    lowSliderValueBox = new QDoubleSpinBox(this);
+    lowSliderValueBox->setRange(0.0, 10.0);
+    lowSliderValueBox->setValue(2.0);
+    lowSliderValueBox->setSingleStep(0.1);
+
+    highSliderValueBox = new QDoubleSpinBox(this);
+    highSliderValueBox->setRange(0.0, 10.0);
+    highSliderValueBox->setValue(8.0);
+    highSliderValueBox->setSingleStep(0.1);
+
+    // Connect sliders and spin boxes
+    connect(lowSlider, &QSlider::valueChanged, [this](int value) {
+        lowSliderValueBox->setValue(value * 0.1);
+        emit rangeChanged(lowSliderValueBox->value(), highSliderValueBox->value());
+    });
+    connect(lowSliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
+        lowSlider->setValue(static_cast<int>(value * 10));
+        emit rangeChanged(value, highSliderValueBox->value());
+    });
+
+    connect(highSlider, &QSlider::valueChanged, [this](int value) {
+        highSliderValueBox->setValue(value * 0.1);
+        emit rangeChanged(lowSliderValueBox->value(), highSliderValueBox->value());
+    });
+    connect(highSliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
+        highSlider->setValue(static_cast<int>(value * 10));
+        emit rangeChanged(lowSliderValueBox->value(), value);
+    });
+
+    // Layout
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    QHBoxLayout *lowLayout = new QHBoxLayout();
+    lowLayout->addWidget(lowSlider);
+    lowLayout->addWidget(lowSliderValueBox);
+
+    QHBoxLayout *highLayout = new QHBoxLayout();
+    highLayout->addWidget(highSlider);
+    highLayout->addWidget(highSliderValueBox);
+
+    layout->addLayout(lowLayout);
+    layout->addLayout(highLayout);
+    setLayout(layout);
+}
 
 Widget::Widget(QWidget *parent) : QWidget(parent) {
-    // 1. Create Widgets
+    // Create Widgets
     graphicsScene = new QGraphicsScene(this);
     graphicsView = new QGraphicsView(graphicsScene, this);
     graphicsView->setRenderHint(QPainter::Antialiasing);
@@ -25,9 +112,11 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     modelSelector = new QComboBox(this);
     modelSelector->addItem("Blank");
     modelSelector->addItem("Sine Wave");
+    modelSelector->addItem("Circle");
     modelSelector->addItem("Reltrans");
+    modelSelector->setToolTip("Select Model");
 
-    //Buttons
+    // Buttons
     generateButton = new QPushButton("Base Model", this);
     QPushButton *zoomInButton = new QPushButton("Zoom In", this);
     zoomInButton->setToolTip("Zoom In (Ctrl + '+')");
@@ -35,18 +124,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     zoomOutButton->setToolTip("Zoom Out (Ctrl + '-')");
     QPushButton *resetViewButton = new QPushButton("Reset View", this);
     QPushButton *saveButton = new QPushButton("Save Image", this);
-    QPushButton *sliderModeButton = new QPushButton("Energy slider mode", this);
-
-    // Sliders
-
-    QSlider *slider = new QSlider(Qt::Horizontal, this);
-    slider->setToolTip("Adjust Energy range");
-    slider->setRange(0, 10); // Set the range of the slider
-    slider->setValue(5);     // Set the initial value of the slider
-
-    // Connect slider value changes to the appropriate slot
-    connect(slider, &QSlider::valueChanged, this, &Widget::handleSliderValueChanged);
-    connect(sliderModeButton, &QPushButton::clicked, this, &Widget::sliderModeChange);
 
     // Connect scene  buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -54,30 +131,51 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     buttonLayout->addWidget(zoomOutButton);
     buttonLayout->addWidget(resetViewButton);
 
-    // Horizontal layout for energy slider and its button
-    QHBoxLayout *sliderLayout = new QHBoxLayout();
-    sliderLayout->addWidget(sliderModeButton);
-    sliderLayout->addWidget(slider);
+    // Slider Mode Selector
+    sliderModeSelector = new QComboBox(this);
+    sliderModeSelector->addItem("Energy bin");
+    sliderModeSelector->addItem("Energy range");
+    sliderModeSelector->setToolTip("Select Slider Mode");
+
+    // Sliders
+    SingleSliderWidget *singleSliderWidget = new SingleSliderWidget(this); // For energy bin
+    DoubleSliderWidget *doubleSliderWidget = new DoubleSliderWidget(this); // For energy range
+    // Stacked layout for the slider widgets
+    QStackedLayout *sliderLayout = new QStackedLayout();
+    sliderLayout->addWidget(singleSliderWidget);
+    sliderLayout->addWidget(doubleSliderWidget);
+
+    connect(singleSliderWidget, &SingleSliderWidget::valueChanged, this, &Widget::handleSingleSliderValueChanged);
+    connect(doubleSliderWidget, &DoubleSliderWidget::rangeChanged, this, &Widget::handleDoubleSliderRangeChanged);
+
+    // Combine slider button and sliders
+    QHBoxLayout *energySliderLayout = new QHBoxLayout();
+    energySliderLayout->addWidget(sliderModeSelector);
+    energySliderLayout->addLayout(sliderLayout);
+
+    connect(sliderModeSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), [sliderLayout](int index) {
+        sliderLayout->setCurrentIndex(index); // Switch between slider layouts
+    });
 
     // Horizontal layout for graphics view and layers list
     QHBoxLayout *canvasLayout = new QHBoxLayout();
     canvasLayout->addWidget(graphicsView);
     canvasLayout->addWidget(layersList);
 
-    // 2. Arrange Layout
+    // Arrange Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addWidget(modelSelector);
     mainLayout->addWidget(generateButton);
     mainLayout->addLayout(buttonLayout);
-    mainLayout->addLayout(canvasLayout);
-    mainLayout->addLayout(sliderLayout);
+    mainLayout->addLayout(canvasLayout,5);
+    mainLayout->addLayout(energySliderLayout,1);
     mainLayout->addWidget(saveButton);
 
     setLayout(mainLayout);
     setWindowTitle("Image");
     setMinimumSize(500, 500);
 
-    // 3. Connect Signals and Slots
+    // Connect Signals and Slots of main widgets
     connect(generateButton, &QPushButton::clicked, this, &Widget::updateImage);
     connect(zoomInButton, &QPushButton::clicked, this, &Widget::zoomIn);
     connect(zoomOutButton, &QPushButton::clicked, this, &Widget::zoomOut);
@@ -89,6 +187,8 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     // Initial image generation
     updateImage();
 }
+
+
 
 Widget::~Widget() {
     // Widgets are children of Widget, so they are automatically deleted when Widget is destroyed.
@@ -114,7 +214,10 @@ void Widget::updateImage() {
         case 1: // Sine Wave
             generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
             break;
-        case 2: // Reltrans (placeholder)
+        case 2: // Circle
+            circle(modelPath, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2, 50);
+            break;
+        case 3: // Reltrans (placeholder)
             qWarning() << "Reltrans model not implemented for vectorized graphics.";
             return;
         default:
@@ -124,6 +227,7 @@ void Widget::updateImage() {
     qDebug() << "Model path generated.";
     QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(modelPath);
     modelPathItem->setPen(QPen(Qt::blue, 2));
+    modelPathItem->setBrush(QBrush(Qt::blue)); // Set the fill color
     graphicsScene->addItem(modelPathItem); // Add the model path to the scene
     qDebug() << "Model path item added to graphics scene.";
     // Add the model layer to the layers list
@@ -241,16 +345,24 @@ void Widget::saveImage() {
 
 // Slider functionality
 
-void Widget::handleSliderValueChanged(int value) {
+void Widget::handleSingleSliderValueChanged(int value) {
     qDebug() << "Slider value changed to:" << value;
 
     // Example: Adjust the opacity of the graphicsScene
-    qreal opacity = 10*value / 100.0; // Convert slider value to a range of 0.0 to 1.0
+    qreal opacity = value / 10.0; // Convert slider value to a range of 0.0 to 1.0
     for (auto item : graphicsScene->items()) {
         item->setOpacity(opacity); // Set the opacity of each item in the scene
     }
 }
 
+void Widget::handleDoubleSliderRangeChanged(double low, double high) {
+    qDebug() << "Double slider range changed to:" << low << " - " << high;
+    // Handle the double slider range (e.g., update a model or UI)
+    qreal opacity = (high - low) / 10.0; // Example calculation
+    for (auto item : graphicsScene->items()) {
+        item->setOpacity(opacity); // Set the opacity of each item in the scene
+    }
+}
 // Image generators
 
 void Widget::generateSineWave(QPainterPath &path, int width, int height) {
@@ -264,6 +376,13 @@ void Widget::generateSineWave(QPainterPath &path, int width, int height) {
 void Widget::blankImage(QPainterPath &path, int width, int height) {
     // Generates a blank image (no drawing)
     qDebug() << "Generating blank image.";
+}
+
+void Widget::circle(QPainterPath &path, int centerX, int centerY, int radius) {
+    path.setFillRule(Qt::WindingFill);
+    qDebug() << "Generating circle at (" << centerX << "," << centerY << ") with radius" << radius;
+    qDebug() << "Fill rule:" << path.fillRule();
+    path.addEllipse(QPointF(centerX, centerY), radius, radius);
 }
 
 void Widget::callReltrans(unsigned char* imageData, int width, int height) {

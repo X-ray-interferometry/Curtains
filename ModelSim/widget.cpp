@@ -1,4 +1,7 @@
-#include "widget.h"
+#include "Widget.h"
+#include "Models.h"
+#include "SpectrumDialog.h"
+
 #include <QImage>
 #include <QPixmap>
 #include <QKeyEvent>
@@ -10,16 +13,21 @@
 #include <QFileDialog>
 #include <QDoubleSpinBox>
 #include <QStackedLayout>
+#include <QList>
+
+#include <functional>
+#include <ranges>
+#include <vector>
 
 SingleSliderWidget::SingleSliderWidget(QWidget *parent) : QWidget(parent) {
     slider = new QSlider(Qt::Horizontal, this);
-    slider->setRange(0, 100);
+    slider->setRange(5, 100);
     slider->setValue(50);
     slider->setTickInterval(1);
     slider->setTickPosition(QSlider::TicksBelow);
 
     sliderValueBox = new QDoubleSpinBox(this);
-    sliderValueBox->setRange(0.0, 10.0);
+    sliderValueBox->setRange(0.5, 10.0);
     sliderValueBox->setValue(5.0);
     sliderValueBox->setSingleStep(0.1);
 
@@ -41,24 +49,24 @@ SingleSliderWidget::SingleSliderWidget(QWidget *parent) : QWidget(parent) {
 
 DoubleSliderWidget::DoubleSliderWidget(QWidget *parent) : QWidget(parent) {
     lowSlider = new QSlider(Qt::Horizontal, this);
-    lowSlider->setRange(0, 100);
+    lowSlider->setRange(5, 100);
     lowSlider->setValue(20);
     lowSlider->setTickInterval(1);
     lowSlider->setTickPosition(QSlider::TicksBelow);
 
     highSlider = new QSlider(Qt::Horizontal, this);
-    highSlider->setRange(0, 100);
+    highSlider->setRange(5, 100);
     highSlider->setValue(80);
     highSlider->setTickInterval(1);
     highSlider->setTickPosition(QSlider::TicksBelow);
 
     lowSliderValueBox = new QDoubleSpinBox(this);
-    lowSliderValueBox->setRange(0.0, 10.0);
+    lowSliderValueBox->setRange(0.5, 10.0);
     lowSliderValueBox->setValue(2.0);
     lowSliderValueBox->setSingleStep(0.1);
 
     highSliderValueBox = new QDoubleSpinBox(this);
-    highSliderValueBox->setRange(0.0, 10.0);
+    highSliderValueBox->setRange(0.5, 10.0);
     highSliderValueBox->setValue(8.0);
     highSliderValueBox->setSingleStep(0.1);
 
@@ -117,13 +125,14 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     modelSelector->setToolTip("Select Model");
 
     // Buttons
-    generateButton = new QPushButton("Base Model", this);
+    generateButton = new QPushButton("Add Model", this);
     QPushButton *zoomInButton = new QPushButton("Zoom In", this);
     zoomInButton->setToolTip("Zoom In (Ctrl + '+')");
     QPushButton *zoomOutButton = new QPushButton("Zoom Out", this);
     zoomOutButton->setToolTip("Zoom Out (Ctrl + '-')");
     QPushButton *resetViewButton = new QPushButton("Reset View", this);
     QPushButton *saveButton = new QPushButton("Save Image", this);
+    QPushButton *clearButton = new QPushButton("Clear Model", this);
 
     // Connect scene  buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -162,13 +171,34 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     canvasLayout->addWidget(graphicsView);
     canvasLayout->addWidget(layersList);
 
+    // Spectrum Dialog
+    SpectrumDialog *spectrumDialog = new SpectrumDialog(this);
+    connect(generateButton, &QPushButton::clicked, [this, spectrumDialog]() {
+        if (spectrumDialog->exec() == QDialog::Accepted) {
+            currentSpectrumFunction = spectrumDialog->getSelectedSpectrum();
+            qDebug() << "Spectrum function updated.";
+            // Use the selected spectrum function
+        }
+        else 
+        {
+            currentSpectrumFunction = [](double energy) { return 1.0; }; // Default to constant brightness
+            qDebug() << "No spectrum function provided, using default constant brightness.";
+        }
+        
+    });
+
+    // Model selection layout
+    QHBoxLayout *modelLayout = new QHBoxLayout();
+    modelLayout->addWidget(modelSelector);
+    modelLayout->addWidget(generateButton);
+    modelLayout->addWidget(clearButton);
+
     // Arrange Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->addWidget(modelSelector);
-    mainLayout->addWidget(generateButton);
+    mainLayout->addLayout(modelLayout, 1);
     mainLayout->addLayout(buttonLayout);
-    mainLayout->addLayout(canvasLayout,5);
-    mainLayout->addLayout(energySliderLayout,1);
+    mainLayout->addLayout(canvasLayout, 5);
+    mainLayout->addLayout(energySliderLayout, 1);
     mainLayout->addWidget(saveButton);
 
     setLayout(mainLayout);
@@ -177,6 +207,7 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
 
     // Connect Signals and Slots of main widgets
     connect(generateButton, &QPushButton::clicked, this, &Widget::updateImage);
+    connect(clearButton, &QPushButton::clicked, this, &Widget::clearModel);
     connect(zoomInButton, &QPushButton::clicked, this, &Widget::zoomIn);
     connect(zoomOutButton, &QPushButton::clicked, this, &Widget::zoomOut);
     connect(resetViewButton, &QPushButton::clicked, this, &Widget::resetView);
@@ -184,8 +215,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     connect(saveButton, &QPushButton::clicked, this, &Widget::saveImage);
 
     qDebug() << "Widget initialized.";
-    // Initial image generation
-    updateImage();
 }
 
 
@@ -200,22 +229,32 @@ void Widget::resetView() {
     graphicsView->fitInView(graphicsScene->itemsBoundingRect(), Qt::KeepAspectRatio); // Fit the view to the content
 }
 
+void Widget::clearModel() {
+    graphicsScene->clear();
+    layersList->clear();
+    pathSpectra.clear();
+    qDebug() << "Cleared model and layers.";
+}
+
 void Widget::updateImage() {
     qDebug() << "Updating image with model:" << modelSelector->currentText();
-    graphicsScene->clear(); // Clear the scene before rendering new content
-    layersList->clear(); // Clear the layers list
 
     QPainterPath modelPath;
+    QColor fillColor;
+
     int selectedIndex = modelSelector->currentIndex();
     switch (selectedIndex) {
         case 0: // Blank
             blankImage(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
+            fillColor = Qt::transparent; // No fill for blank image
             break;
         case 1: // Sine Wave
             generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
+            fillColor = Qt::transparent; // No fill for sine wave
             break;
         case 2: // Circle
             circle(modelPath, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2, 50);
+            fillColor = Qt::blue; // Fill the circle with blue
             break;
         case 3: // Reltrans (placeholder)
             qWarning() << "Reltrans model not implemented for vectorized graphics.";
@@ -224,17 +263,9 @@ void Widget::updateImage() {
             qWarning() << "Unknown model selected!";
             return;
     }
+
     qDebug() << "Model path generated.";
-    QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(modelPath);
-    modelPathItem->setPen(QPen(Qt::blue, 2));
-    modelPathItem->setBrush(QBrush(Qt::blue)); // Set the fill color
-    graphicsScene->addItem(modelPathItem); // Add the model path to the scene
-    qDebug() << "Model path item added to graphics scene.";
-    // Add the model layer to the layers list
-    QListWidgetItem *modelLayerItem = new QListWidgetItem("[Visible] Base Model");
-    modelLayerItem->setData(Qt::UserRole, QVariant::fromValue(modelPathItem)); // Store the graphics item
-    layersList->addItem(modelLayerItem);
-    qDebug() << "Layers list updated.";
+    addModelPathItem(modelPath, fillColor, currentSpectrumFunction); // Use the helper function
 
     // Re-add the drawingPathItem to ensure it remains visible
     if (!drawingPath.isEmpty()) {
@@ -247,6 +278,55 @@ void Widget::updateImage() {
         layersList->addItem(drawingLayerItem);
     }
     graphicsView->fitInView(graphicsScene->itemsBoundingRect(), Qt::KeepAspectRatio); // Fit the view to the content
+}
+
+void Widget::addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction) {
+    QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(path);
+    modelPathItem->setPen(QPen(Qt::blue, 2)); // Set the outline color and width
+    modelPathItem->setBrush(QBrush(fillColor)); // Set the fill color
+    graphicsScene->addItem(modelPathItem); // Add the model path to the scene
+    qDebug() << "Model path item added to graphics scene.";
+
+    // Add the model layer to the layers list
+    QListWidgetItem *modelLayerItem = new QListWidgetItem("[Visible] Base Model");
+    modelLayerItem->setData(Qt::UserRole, QVariant::fromValue(modelPathItem)); // Store the graphics item
+    layersList->addItem(modelLayerItem);
+    qDebug() << "Layers list updated.";
+    addPathWithSpectrum(modelPathItem, spectrumFunction);
+}
+
+void Widget::addPathWithSpectrum(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction) {
+    if (!pathItem) {
+        qWarning() << "Attempted to add a null path item!";
+        return;
+    }
+
+    // Calculate the maximum brightness of the spectrum
+    double maxBrightness = 0.0;
+    double brightness = 0.0;
+    double low = 0.1; // Start of the energy range
+    double high = 10.0; // End of the energy range
+    double step = 0.1; // Step size for evaluation
+    double totalBrightness = 0.0;
+
+    for (double energy = low; energy <= high; energy += step) {
+        brightness = spectrumFunction(energy);
+        maxBrightness = std::max(maxBrightness, brightness);
+        totalBrightness += brightness;
+    }
+
+    pathSpectra.append({pathItem, spectrumFunction, maxBrightness, totalBrightness});
+    qDebug() << "Added path with spectrum. Max brightness:" << maxBrightness << ". Total brightness:" << totalBrightness << ". Total paths:" << pathSpectra.size();
+}
+
+void Widget::setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction) {
+    for (PathSpectrum &pathSpectrum : pathSpectra) {
+        if (pathSpectrum.pathItem == pathItem) {
+            pathSpectrum.spectrumFunction = spectrumFunction;
+            return;
+        }
+    }
+    qWarning() << "Path item not found in spectrum list!";
 }
 
 void Widget::zoomIn() {
@@ -348,45 +428,60 @@ void Widget::saveImage() {
 void Widget::handleSingleSliderValueChanged(int value) {
     qDebug() << "Slider value changed to:" << value;
 
-    // Example: Adjust the opacity of the graphicsScene
-    qreal opacity = value / 10.0; // Convert slider value to a range of 0.0 to 1.0
-    for (auto item : graphicsScene->items()) {
-        item->setOpacity(opacity); // Set the opacity of each item in the scene
+    double energy = value * 0.1; // Convert slider value to energy (0.0 to 10.0)
+
+    for (const PathSpectrum &pathSpectrum : pathSpectra) {
+        qDebug() << "Evaluating spectrum for energy:" << energy;
+        double brightness = pathSpectrum.spectrumFunction(energy); // Get brightness from spectrum function
+        qDebug() << "Calculated brightness:" << brightness;
+        if (pathSpectrum.maxBrightness > 0.0) {
+            brightness /= pathSpectrum.maxBrightness;
+        }
+        qDebug() << "Normalized brightness:" << brightness;
+        brightness = qBound(0.0, brightness, 1.0); // Clamp brightness to [0.0, 1.0]
+        qDebug() << "Clamped brightness:" << brightness;
+        QColor color = QColor::fromHsvF(0.6, 1.0, brightness); // Map brightness to a color (e.g., blue spectrum)
+        qDebug() << "Mapped color:" << color;
+        pathSpectrum.pathItem->setBrush(QBrush(color)); // Update the path's color
+        qDebug() << "Updated path item brush.";
     }
 }
 
 void Widget::handleDoubleSliderRangeChanged(double low, double high) {
     qDebug() << "Double slider range changed to:" << low << " - " << high;
     // Handle the double slider range (e.g., update a model or UI)
-    qreal opacity = (high - low) / 10.0; // Example calculation
-    for (auto item : graphicsScene->items()) {
-        item->setOpacity(opacity); // Set the opacity of each item in the scene
+    double energy_low = low * 0.1; // Convert slider value to energy (0.0 to 10.0)
+    double energy_high = high * 0.1;
+    double step = 0.1; // Define the step size for the energy range
+
+    double energy_range = (energy_low + energy_high) / 2.0;
+
+    for (const PathSpectrum &pathSpectrum : pathSpectra) {
+        double brightnessSum = evaluateSpectrumOverRange(pathSpectrum, energy_low, energy_high, step);
+        
+        brightnessSum /= pathSpectrum.totalBrightness; // Normalize by total brightness
+        double normalizedBrightness = qBound(0.0, brightnessSum, 1.0); // Clamp brightness to [0.0, 1.0]
+
+        QColor color = QColor::fromHsvF(0.6, 1.0, normalizedBrightness); // Map brightness to a color (e.g., blue spectrum)
+        pathSpectrum.pathItem->setBrush(QBrush(color)); // Update the path's color
     }
 }
-// Image generators
 
-void Widget::generateSineWave(QPainterPath &path, int width, int height) {
-    path.moveTo(0, height / 2);
-    for (int x = 0; x < width; ++x) {
-        double y = height / 2 + 50 * sin(x * 0.1); // Sine wave formula
-        path.lineTo(x, y);
+std::vector<double> generateEnergyRange(double low, double high, double step) {
+    std::vector<double> energyRange;
+    for (double energy = low; energy <= high; energy += step) {
+        energyRange.push_back(energy);
     }
+    return energyRange;
 }
 
-void Widget::blankImage(QPainterPath &path, int width, int height) {
-    // Generates a blank image (no drawing)
-    qDebug() << "Generating blank image.";
-}
+double Widget::evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, double low, double high, double step) {
+    double sum = 0.0;
+    std::vector<double> energyRange = generateEnergyRange(low, high, step);
 
-void Widget::circle(QPainterPath &path, int centerX, int centerY, int radius) {
-    path.setFillRule(Qt::WindingFill);
-    qDebug() << "Generating circle at (" << centerX << "," << centerY << ") with radius" << radius;
-    qDebug() << "Fill rule:" << path.fillRule();
-    path.addEllipse(QPointF(centerX, centerY), radius, radius);
-}
+    for (double energy : energyRange) {
+        sum += pathSpectrum.spectrumFunction(energy); // Evaluate the spectrum function
+    }
 
-void Widget::callReltrans(unsigned char* imageData, int width, int height) {
-    // Calls reltrans.
-    qDebug() << "Calling reltrans Fortran subroutine.";
-    //reltrans(imageData, width, height);
+    return sum;
 }

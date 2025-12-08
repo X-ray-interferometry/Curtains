@@ -14,13 +14,17 @@ find_package(Qt6 COMPONENTS Widgets REQUIRED)
 # Add your source files
 set(SOURCES
     main.cpp
-    widget.cpp
-    widget.h
+    Widget.cpp
+    Widget.h
+    Models.cpp
+    Models.h
+    SpectrumDialog.cpp
+    SpectrumDialog.h
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)
 qt6_wrap_ui(UI_FORMS_H) # Not strictly needed here as we don't have .ui files
-qt6_wrap_cpp(MOC_HEADERS widget.h) # Processes the Q_OBJECT macro
+qt6_wrap_cpp(MOC_HEADERS Widget.h) # Processes the Q_OBJECT macro
 
 # Add Fortran library
 # add_library(FortranModels SHARED IMPORTED)

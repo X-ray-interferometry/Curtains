@@ -15,6 +15,13 @@
 //    void reltrans(unsigned char* imageData, int width, int height);
 //}
 
+struct PathSpectrum {
+    QGraphicsPathItem *pathItem;
+    std::function<double(double)> spectrumFunction;
+    double maxBrightness; // Maximum brightness of the spectrum
+    double totalBrightness; // Total brightness over the evaluated range
+};
+
 class Widget : public QWidget {
     Q_OBJECT // Required for Qt's signal/slot mechanism
 
@@ -32,11 +39,13 @@ public slots:
     void zoomOut(); // Zoom out the image
     void toggleLayerVisibility(QListWidgetItem *item); // Toggle layer visibility
     void saveImage(); // Save the current image
+    void clearModel();
 
 private:
     QComboBox *modelSelector;
     QPushButton *generateButton;
     QPushButton *saveButton;
+    QPushButton *clearButton;
     QSlider *slider;
     QSlider *lowRangeSlider;
     QSlider *highRangeSlider;
@@ -48,17 +57,19 @@ private:
     QPoint lastPoint;      // Tracks the last point for drawing
     QPainterPath drawingPath; // Stores the vectorized lines
     QGraphicsPathItem *drawingPathItem; // Item to represent the drawn paths
+    QList<PathSpectrum> pathSpectra; // List of paths and their spectrum functions
     bool isDrawing = false; // Tracks whether the user is currently drawing
+    std::function<double(double)> currentSpectrumFunction; // Store the currently selected spectrum function
 
     void resetView();  // Reset view to full image
+    void addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction = nullptr);
+    void addPathWithSpectrum(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
+    void setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
+    double evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, double low, double high, double step);
 
     // Placeholder C++ functions representing Fortran subroutines
     // In a real app, these would be `extern "C"` declarations
     // that link to your compiled Fortran code using ISO_C_BINDING.
-    void generateSineWave(QPainterPath &path, int width, int height);
-    void callReltrans(unsigned char* imageData, int width, int height);
-    void blankImage(QPainterPath &path, int width, int height);
-    void circle(QPainterPath &path, int centerX, int centerY, int radius);
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 300;

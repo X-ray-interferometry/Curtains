@@ -1,6 +1,7 @@
 #include "Widget.h"
 #include "Models.h"
 #include "SpectrumDialog.h"
+#include "ModelDefinitionDialog.h"
 #include "RenderWindow.h"
 
 #include <QImage>
@@ -173,19 +174,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
 
     // Spectrum Dialog
     SpectrumDialog *spectrumDialog = new SpectrumDialog(this);
-    connect(generateButton, &QPushButton::clicked, [this, spectrumDialog]() {
-        if (spectrumDialog->exec() == QDialog::Accepted) {
-            currentSpectrumFunction = spectrumDialog->getSelectedSpectrum();
-            qDebug() << "Spectrum function updated.";
-            // Use the selected spectrum function
-        }
-        else 
-        {
-            currentSpectrumFunction = [](double energy) { return 1.0; }; // Default to constant brightness
-            qDebug() << "No spectrum function provided, using default constant brightness.";
-        }
-        
-    });
 
     // Model selection layout
     QHBoxLayout *modelLayout = new QHBoxLayout();
@@ -223,12 +211,47 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     setMinimumSize(500, 500);
 
     // Connect Signals and Slots of main widgets
-    connect(generateButton, &QPushButton::clicked, this, &Widget::updateImage);
+    
     connect(clearButton, &QPushButton::clicked, this, &Widget::clearModel);
     connect(zoomInButton, &QPushButton::clicked, this, &Widget::zoomIn);
     connect(zoomOutButton, &QPushButton::clicked, this, &Widget::zoomOut);
     connect(resetViewButton, &QPushButton::clicked, this, &Widget::resetView);
     connect(layersList, &QListWidget::itemClicked, this, &Widget::toggleLayerVisibility);
+
+    // Generate button connections
+    connect(generateButton, &QPushButton::clicked, [this]() {
+        QString modelType = modelSelector->currentText();
+        ModelDefinitionDialog modelDefDialog(modelType, this);
+
+        if (modelDefDialog.exec() == QDialog::Accepted) {
+            // Retrieve model parameters from the dialog
+            parameters = modelDefDialog.getParameters();
+            if (modelType == "Sine Wave") {
+                amplitude = parameters["Amplitude"].toDouble();
+                frequency = parameters["Frequency"].toDouble();
+                qDebug() << "Sine Wave parameters - Amplitude:" << amplitude << ", Frequency:" << frequency;
+            } else if (modelType == "Circle") {
+                radius = parameters["Radius"].toDouble();
+                centerX = parameters["CenterX"].toInt();
+                centerY = parameters["CenterY"].toInt();
+                qDebug() << "Circle parameters - Radius:" << radius << ", CenterX:" << centerX << ", CenterY:" << centerY;
+            }
+        }
+    });
+    connect(generateButton, &QPushButton::clicked, [this, spectrumDialog]() {
+        if (spectrumDialog->exec() == QDialog::Accepted) {
+            currentSpectrumFunction = spectrumDialog->getSelectedSpectrum();
+            qDebug() << "Spectrum function updated.";
+            // Use the selected spectrum function
+        }
+        else 
+        {
+            currentSpectrumFunction = [](double energy) { return 1.0; }; // Default to constant brightness
+            qDebug() << "No spectrum function provided, using default constant brightness.";
+        }
+        
+    });
+    connect(generateButton, &QPushButton::clicked, this, &Widget::updateImage);
 
     qDebug() << "Widget initialized.";
 }
@@ -265,11 +288,11 @@ void Widget::updateImage() {
             fillColor = Qt::transparent; // No fill for blank image
             break;
         case 1: // Sine Wave
-            generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
+            generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT, amplitude, frequency);
             fillColor = Qt::transparent; // No fill for sine wave
             break;
         case 2: // Circle
-            circle(modelPath, IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2, 50);
+            circle(modelPath, centerX, centerY, radius);
             fillColor = Qt::blue; // Fill the circle with blue
             break;
         case 3: // Reltrans (placeholder)
@@ -428,31 +451,6 @@ void Widget::keyPressEvent(QKeyEvent *event) {
         } else if (event->key() == Qt::Key_Minus) {
             zoomOut();
         }
-    }
-}
-
-// Drawing functionality
-void Widget::mousePressEvent(QMouseEvent *event) {
-    if (event->button() == Qt::LeftButton) {
-        isDrawing = true;
-        lastPoint = event->pos(); // Store the starting point
-    }
-}
-
-void Widget::mouseMoveEvent(QMouseEvent *event) {
-    if (isDrawing) {
-        QPainterPath path;
-        path.moveTo(lastPoint);
-        path.lineTo(event->pos());
-        QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(path);
-        modelPathItem->setPen(QPen(Qt::blue, 2));
-        graphicsScene->addItem(modelPathItem); // Add the model path to the scene
-    }
-}
-
-void Widget::mouseReleaseEvent(QMouseEvent *event) {
-    if (event->button() == Qt::LeftButton && isDrawing) {
-        isDrawing = false;
     }
 }
 

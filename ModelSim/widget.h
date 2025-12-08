@@ -58,8 +58,16 @@ private:
     QPixmap currentPixmap; // Stores the current image being drawn on
     QPoint lastPoint;      // Tracks the last point for drawing
     QList<PathSpectrum> pathSpectra; // List of paths and their spectrum functions
-    bool isDrawing = false; // Tracks whether the user is currently drawing
+
+    // Rendering functionality
     std::function<double(double)> currentSpectrumFunction; // Store the currently selected spectrum function
+    double amplitude; // Amplitude
+    double frequency; // Frequency
+    double radius;    // Radius for circle
+    int centerX;   // Center X for circle
+    int centerY;   // Center Y for circle
+
+    QMap<QString, QVariant> parameters; // Store model parameters   
 
     std::unique_ptr<RenderWindow> renderWindow; // Use a smart pointer
 
@@ -76,13 +84,10 @@ private:
     // that link to your compiled Fortran code using ISO_C_BINDING.
 
     static const int IMAGE_WIDTH = 400;
-    static const int IMAGE_HEIGHT = 300;
+    static const int IMAGE_HEIGHT = 400;
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
 };
 
 #endif // MYWIDGET_H

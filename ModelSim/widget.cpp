@@ -134,6 +134,14 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     zoomOutButton->setToolTip("Zoom Out (Ctrl + '-')");
     QPushButton *resetViewButton = new QPushButton("Reset View", this);
     QPushButton *clearButton = new QPushButton("Clear Model", this);
+    QPushButton *logButton = new QPushButton("Toggle Log Scale", this);
+    logButton->setCheckable(true);
+    logButton->setChecked(logScale);
+
+    // Connect log button
+    connect(logButton, &QPushButton::toggled, [this](bool checked) {
+        logScale = checked ? 1 : 0;
+    });
 
     // Connect scene  buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -170,7 +178,11 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     // Horizontal layout for graphics view and layers list
     QHBoxLayout *canvasLayout = new QHBoxLayout();
     canvasLayout->addWidget(graphicsView);
-    canvasLayout->addWidget(layersList);
+    QVBoxLayout *layersLayout = new QVBoxLayout();
+    layersLayout->addWidget(new QLabel("Layers:"));
+    layersLayout->addWidget(layersList,10);
+    layersLayout->addWidget(logButton,1);
+    canvasLayout->addLayout(layersLayout);
 
     // Spectrum Dialog
     SpectrumDialog *spectrumDialog = new SpectrumDialog(this);
@@ -312,13 +324,13 @@ void Widget::updateImage() {
 // Model Path Functions
 void Widget::addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction) {
     QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(path);
-    modelPathItem->setPen(QPen(Qt::blue, 2)); // Set the outline color and width
+    modelPathItem->setPen(Qt::NoPen); // No outline
     modelPathItem->setBrush(QBrush(fillColor)); // Set the fill color
     graphicsScene->addItem(modelPathItem); // Add the model path to the scene
     qDebug() << "Model path item added to graphics scene.";
 
     // Add the model layer to the layers list
-    QListWidgetItem *modelLayerItem = new QListWidgetItem("[Visible] Base Model");
+    QListWidgetItem *modelLayerItem = new QListWidgetItem("[Visible] " + modelSelector->currentText());
     modelLayerItem->setData(Qt::UserRole, QVariant::fromValue(modelPathItem)); // Store the graphics item
     layersList->addItem(modelLayerItem);
     qDebug() << "Layers list updated.";
@@ -397,7 +409,7 @@ QImage Widget::renderStackedImage() {
             QColor brushColor = QColor::fromRgbF(brightness, brightness, brightness);
             qDebug() << "Brush color for rendering:" << brushColor;
             pathPainter.setBrush(QBrush(brushColor));
-            pathPainter.setPen(QPen(Qt::white, 2));
+            pathPainter.setPen(Qt::NoPen);
             pathPainter.translate(-sceneRect.topLeft()); // Align scene coordinates with image coordinates
             pathPainter.drawPath(path);
         }
@@ -485,10 +497,19 @@ void Widget::handleSingleSliderValueChanged(int value) {
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
         qDebug() << "Evaluating spectrum for energy:" << energy;
         double brightness = pathSpectrum.spectrumFunction(energy); // Get brightness from spectrum function
+        if (logScale) {
+            brightness = log10(1.0 + brightness); // Apply log scale if enabled
+            qDebug() << "Log-scaled brightness:" << brightness;
+        }
         qDebug() << "Calculated brightness:" << brightness;
-        if (pathSpectrum.maxBrightness > 0.0) {
+        if (pathSpectrum.maxBrightness > 0.0 && !logScale) {
             brightness /= pathSpectrum.maxBrightness;
         }
+        else if (pathSpectrum.maxBrightness > 0.0 && logScale) {
+            double logMax = log10(1.0 + pathSpectrum.maxBrightness);
+            brightness /= logMax;
+        }
+        
         qDebug() << "Normalized brightness:" << brightness;
         brightness = qBound(0.0, brightness, 1.0); // Clamp brightness to [0.0, 1.0]
         qDebug() << "Clamped brightness:" << brightness;
@@ -510,8 +531,15 @@ void Widget::handleDoubleSliderRangeChanged(double low, double high) {
 
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
         double brightnessSum = evaluateSpectrumOverRange(pathSpectrum, energy_low, energy_high, step);
-        
-        brightnessSum /= pathSpectrum.totalBrightness; // Normalize by total brightness
+        double totalBrightness = 0.0;
+        if (logScale) {
+            brightnessSum = log10(1.0 + brightnessSum); // Apply log scale if enabled
+            totalBrightness = log10(1.0 + pathSpectrum.totalBrightness);
+        }
+        else {
+            totalBrightness = pathSpectrum.totalBrightness;
+        }
+        brightnessSum /= totalBrightness; // Normalize by total brightness
         double normalizedBrightness = qBound(0.0, brightnessSum, 1.0); // Clamp brightness to [0.0, 1.0]
 
         QColor color = QColor::fromHsvF(0.6, 1.0, normalizedBrightness); // Map brightness to a color (e.g., blue spectrum)
@@ -537,3 +565,7 @@ double Widget::evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, doubl
 
     return sum;
 }
+
+// Log scale toggle
+
+

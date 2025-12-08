@@ -66,6 +66,7 @@ private:
     double radius;    // Radius for circle
     int centerX;   // Center X for circle
     int centerY;   // Center Y for circle
+    int logScale = 0;   // Log scale flag 0 == linear, 1 == log
 
     QMap<QString, QVariant> parameters; // Store model parameters   
 

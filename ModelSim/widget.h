@@ -77,6 +77,10 @@ private:
     void addPathWithSpectrum(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
     void setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
     double evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, double low, double high, double step);
+    void editLayerPath(QListWidgetItem *item);
+    void editLayerSpectrum(QListWidgetItem *item);
+    void deleteLayer(QListWidgetItem *item);
+    void showLayerContextMenu(const QPoint &pos);
 
     QImage renderStackedImage(); // Declare the function here
 

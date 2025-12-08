@@ -16,6 +16,7 @@
 #include <QDoubleSpinBox>
 #include <QStackedLayout>
 #include <QList>
+#include <QMenu>
 
 #include <functional>
 #include <ranges>
@@ -229,6 +230,8 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     connect(zoomOutButton, &QPushButton::clicked, this, &Widget::zoomOut);
     connect(resetViewButton, &QPushButton::clicked, this, &Widget::resetView);
     connect(layersList, &QListWidget::itemClicked, this, &Widget::toggleLayerVisibility);
+    connect(layersList, &QListWidget::customContextMenuRequested, this, &Widget::showLayerContextMenu);
+    layersList->setContextMenuPolicy(Qt::CustomContextMenu);
 
     // Generate button connections
     connect(generateButton, &QPushButton::clicked, [this]() {
@@ -484,6 +487,91 @@ void Widget::toggleLayerVisibility(QListWidgetItem *item) {
         pathItem->show();
         item->setText("[Visible] " + item->text().remove("[Hidden] "));
         qDebug() << "Layer shown.";
+    }
+}
+
+void Widget::showLayerContextMenu(const QPoint &pos) {
+    QListWidgetItem *item = layersList->itemAt(pos);
+    if (!item) return;
+
+    QMenu contextMenu(this);
+    QAction *editPathAction = contextMenu.addAction("Edit Path");
+    QAction *editSpectrumAction = contextMenu.addAction("Edit Spectrum");
+    QAction *deleteLayerAction = contextMenu.addAction("Delete Layer");
+
+    QAction *selectedAction = contextMenu.exec(layersList->mapToGlobal(pos));
+    if (selectedAction == editPathAction) {
+        editLayerPath(item);
+    } else if (selectedAction == editSpectrumAction) {
+        editLayerSpectrum(item);
+    } else if (selectedAction == deleteLayerAction) {
+        deleteLayer(item);
+    }
+}
+
+// Layer context menu actions
+
+void Widget::deleteLayer(QListWidgetItem *item) {
+    QGraphicsPathItem *pathItem = item->data(Qt::UserRole).value<QGraphicsPathItem*>();
+    if (!pathItem) return;
+
+    graphicsScene->removeItem(pathItem);
+    delete pathItem;
+    delete item;
+
+    pathSpectra.erase(std::remove_if(pathSpectra.begin(), pathSpectra.end(), [pathItem](const PathSpectrum &ps) {
+        return ps.pathItem == pathItem;
+    }), pathSpectra.end());
+
+    qDebug() << "Layer deleted.";
+}
+
+void Widget::editLayerPath(QListWidgetItem *item) {
+    QGraphicsPathItem *pathItem = item->data(Qt::UserRole).value<QGraphicsPathItem*>();
+    if (!pathItem) return;
+
+    // Open the ModelDefinitionDialog with the current model type
+    QString modelType = modelSelector->currentText();
+    ModelDefinitionDialog modelDefDialog(modelType, this);
+
+    if (modelDefDialog.exec() == QDialog::Accepted) {
+        // Retrieve updated model parameters
+        QMap<QString, QVariant> parameters = modelDefDialog.getParameters();
+
+        QPainterPath updatedPath;
+        if (modelType == "Sine Wave") {
+            double amplitude = parameters["Amplitude"].toDouble();
+            double frequency = parameters["Frequency"].toDouble();
+            generateSineWave(updatedPath, IMAGE_WIDTH, IMAGE_HEIGHT, amplitude, frequency);
+        } else if (modelType == "Circle") {
+            double radius = parameters["Radius"].toDouble();
+            int centerX = parameters["CenterX"].toInt();
+            int centerY = parameters["CenterY"].toInt();
+            circle(updatedPath, centerX, centerY, radius);
+        }
+
+        // Update the path item with the new path
+        pathItem->setPath(updatedPath);
+        qDebug() << "Path updated for layer.";
+    }
+}
+
+void Widget::editLayerSpectrum(QListWidgetItem *item) {
+    QGraphicsPathItem *pathItem = item->data(Qt::UserRole).value<QGraphicsPathItem*>();
+    if (!pathItem) return;
+
+    // Find the spectrum associated with the path
+    auto it = std::find_if(pathSpectra.begin(), pathSpectra.end(), [pathItem](const PathSpectrum &ps) {
+        return ps.pathItem == pathItem;
+    });
+
+    if (it != pathSpectra.end()) {
+        // Open the SpectrumDialog to edit the spectrum
+        SpectrumDialog spectrumDialog(this);
+        if (spectrumDialog.exec() == QDialog::Accepted) {
+            it->spectrumFunction = spectrumDialog.getSelectedSpectrum();
+            qDebug() << "Spectrum updated for layer.";
+        }
     }
 }
 

@@ -9,18 +9,22 @@ SpectrumDialog::SpectrumDialog(QWidget *parent) : QDialog(parent) {
     spectrumSelector = new QComboBox(this);
     spectrumSelector->addItem("Power Law");
     spectrumSelector->addItem("Black Body");
+    spectrumSelector->setCurrentIndex(0);
 
     normalizationSpinBox = new QDoubleSpinBox(this);
     normalizationSpinBox->setRange(0.0, 100.0);
     normalizationSpinBox->setValue(1.0);
 
+
     slopeSpinBox = new QDoubleSpinBox(this);
     slopeSpinBox->setRange(0, 3.5);
     slopeSpinBox->setValue(2.0);
+    slopeSpinBox->setEnabled(true);
 
     temperatureSpinBox = new QDoubleSpinBox(this);
     temperatureSpinBox->setRange(0.1, 100.0);
     temperatureSpinBox->setValue(10.0);
+    temperatureSpinBox->setDisabled(true);
 
     QFormLayout *formLayout = new QFormLayout();
     formLayout->addRow("Spectrum Type:", spectrumSelector);

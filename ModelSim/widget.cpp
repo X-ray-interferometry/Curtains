@@ -1,6 +1,7 @@
 #include "Widget.h"
 #include "Models.h"
 #include "SpectrumDialog.h"
+#include "RenderWindow.h"
 
 #include <QImage>
 #include <QPixmap>
@@ -131,7 +132,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     QPushButton *zoomOutButton = new QPushButton("Zoom Out", this);
     zoomOutButton->setToolTip("Zoom Out (Ctrl + '-')");
     QPushButton *resetViewButton = new QPushButton("Reset View", this);
-    QPushButton *saveButton = new QPushButton("Save Image", this);
     QPushButton *clearButton = new QPushButton("Clear Model", this);
 
     // Connect scene  buttons
@@ -193,13 +193,30 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     modelLayout->addWidget(generateButton);
     modelLayout->addWidget(clearButton);
 
+    // Render Window
+    QPushButton *renderImageButton = new QPushButton("Render Image", this);
+
+    connect(renderImageButton, &QPushButton::clicked, [this]() {
+        qDebug() << "Rendering stacked image.";
+        // Render the total stacked image
+        QImage stackedImage = renderStackedImage();
+
+        // Check if the RenderWindow already exists
+        if (!renderWindow) {
+            renderWindow = std::make_unique<RenderWindow>();
+        }
+
+        renderWindow->setImage(stackedImage);
+        renderWindow->show();
+    });
+
     // Arrange Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(modelLayout, 1);
     mainLayout->addLayout(buttonLayout);
     mainLayout->addLayout(canvasLayout, 5);
     mainLayout->addLayout(energySliderLayout, 1);
-    mainLayout->addWidget(saveButton);
+    mainLayout->addWidget(renderImageButton);
 
     setLayout(mainLayout);
     setWindowTitle("Image");
@@ -212,7 +229,6 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     connect(zoomOutButton, &QPushButton::clicked, this, &Widget::zoomOut);
     connect(resetViewButton, &QPushButton::clicked, this, &Widget::resetView);
     connect(layersList, &QListWidget::itemClicked, this, &Widget::toggleLayerVisibility);
-    connect(saveButton, &QPushButton::clicked, this, &Widget::saveImage);
 
     qDebug() << "Widget initialized.";
 }
@@ -266,20 +282,11 @@ void Widget::updateImage() {
 
     qDebug() << "Model path generated.";
     addModelPathItem(modelPath, fillColor, currentSpectrumFunction); // Use the helper function
-
-    // Re-add the drawingPathItem to ensure it remains visible
-    if (!drawingPath.isEmpty()) {
-        graphicsScene->addItem(drawingPathItem); // Add the path item to the scene
-        qDebug() << "Re-added drawing path item to graphics scene.";
-
-        // Add the drawing layer to the layers list
-        QListWidgetItem *drawingLayerItem = new QListWidgetItem("Drawing Layer [Visible]");
-        drawingLayerItem->setData(Qt::UserRole, QVariant::fromValue(drawingPathItem)); // Store the graphics item
-        layersList->addItem(drawingLayerItem);
-    }
     graphicsView->fitInView(graphicsScene->itemsBoundingRect(), Qt::KeepAspectRatio); // Fit the view to the content
 }
 
+
+// Model Path Functions
 void Widget::addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction) {
     QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(path);
     modelPathItem->setPen(QPen(Qt::blue, 2)); // Set the outline color and width
@@ -327,6 +334,83 @@ void Widget::setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<
         }
     }
     qWarning() << "Path item not found in spectrum list!";
+}
+
+// Render stacked image from all paths
+
+QImage Widget::renderStackedImage() {
+    QRectF sceneRect = graphicsScene->sceneRect();
+    qDebug() << "Scene Rect:" << sceneRect;
+    
+    if (sceneRect.isEmpty()) {
+        sceneRect = graphicsScene->itemsBoundingRect();
+        graphicsScene->setSceneRect(sceneRect);
+        qDebug() << "Updated Scene Rect:" << sceneRect;
+    }
+    int width = static_cast<int>(sceneRect.width());
+    int height = static_cast<int>(sceneRect.height());
+    qDebug() << "Rendering stacked image of size:" << width << "x" << height;
+
+    // Create an accumulation buffer for brightness values
+    std::vector<std::vector<double>> brightnessBuffer(height, std::vector<double>(width, 0.0));
+
+    // Iterate over all paths and accumulate brightness
+    for (const PathSpectrum &pathSpectrum : pathSpectra) {
+        QImage pathImage(width, height, QImage::Format_RGB32);
+        pathImage.fill(Qt::black); // Initialize the image with black (0 brightness)
+        QPainter pathPainter(&pathImage);
+        pathPainter.setRenderHint(QPainter::Antialiasing);
+
+        // Render the path to the image
+        QGraphicsPathItem *pathItem = pathSpectrum.pathItem;
+        if (pathItem) {
+            QPainterPath path = pathItem->path();
+            qDebug() << "Path bounding rect:" << path.boundingRect();
+            QBrush brush = pathItem->brush();
+            QColor color = brush.color();
+            double brightness = color.valueF(); // Get the brightness of the path
+            qDebug() << "Rendering path with brightness:" << brightness;
+
+            QColor brushColor = QColor::fromRgbF(brightness, brightness, brightness);
+            qDebug() << "Brush color for rendering:" << brushColor;
+            pathPainter.setBrush(QBrush(brushColor));
+            pathPainter.setPen(QPen(Qt::white, 2));
+            pathPainter.translate(-sceneRect.topLeft()); // Align scene coordinates with image coordinates
+            pathPainter.drawPath(path);
+        }
+        pathPainter.end();
+
+        // Accumulate brightness values into the buffer
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                QColor pixelColor = pathImage.pixelColor(x, y);
+                double pixelBrightness = pixelColor.valueF();
+                brightnessBuffer[y][x] += pixelBrightness;
+                if (pixelBrightness > 0.0) {
+                    qDebug() << "Accumulating brightness at (" << x << "," << y << "):" << pixelBrightness;
+                }
+            }
+        }
+    }
+
+    // Normalize the brightness buffer and render the final image
+    QImage finalImage(width, height, QImage::Format_Grayscale8);
+    double maxBrightness = 0.0;
+    for (const auto &row : brightnessBuffer) {
+        for (double value : row) {
+            maxBrightness = std::max(maxBrightness, value);
+        }
+    }
+    qDebug() << "Max brightness in buffer:" << maxBrightness;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            double normalizedBrightness = qBound(0.0, brightnessBuffer[y][x] / maxBrightness, 1.0);
+            int pixelValue = static_cast<int>(normalizedBrightness * 255);
+            finalImage.setPixelColor(x, y, QColor(pixelValue, pixelValue, pixelValue));
+        }
+    }
+
+    return finalImage;
 }
 
 void Widget::zoomIn() {
@@ -390,36 +474,6 @@ void Widget::toggleLayerVisibility(QListWidgetItem *item) {
         pathItem->show();
         item->setText("[Visible] " + item->text().remove("[Hidden] "));
         qDebug() << "Layer shown.";
-    }
-}
-
-// Save image functionality
-
-void Widget::saveImage() {
-    // Prompt the user for a file location and name
-    QString filePath = QFileDialog::getSaveFileName(this, "Save Image", "", "PNG Files (*.png);;JPEG Files (*.jpg);;BMP Files (*.bmp);;All Files (*)");
-
-    // Check if the user canceled the dialog
-    if (filePath.isEmpty()) {
-        qWarning() << "Save operation canceled.";
-        return;
-    }
-
-    // Create a pixmap to render the scene
-    QRectF sceneRect = graphicsScene->sceneRect(); // Get the scene's bounding rectangle
-    QPixmap pixmap(sceneRect.width(), sceneRect.height());
-    pixmap.fill(Qt::black); // Fill the pixmap with a black background (0 photons)
-
-    // Render the scene onto the pixmap
-    QPainter painter(&pixmap);
-    graphicsScene->render(&painter);
-    painter.end();
-
-    // Save the current image to the specified file
-    if (!pixmap.save(filePath)) {
-        qWarning() << "Failed to save image to:" << filePath;
-    } else {
-        qDebug() << "Image successfully saved to:" << filePath;
     }
 }
 

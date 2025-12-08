@@ -20,6 +20,8 @@ set(SOURCES
     Models.h
     SpectrumDialog.cpp
     SpectrumDialog.h
+    RenderWindow.cpp
+    RenderWindow.h
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)

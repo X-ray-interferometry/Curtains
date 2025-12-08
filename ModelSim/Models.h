@@ -11,7 +11,7 @@ void circle(QPainterPath &path, int centerX, int centerY, int radius);
 void callReltrans(unsigned char* imageData, int width, int height);
 
 // Spectrum functions
-std::function<double(double)> powerLawSpectrum(double normalization, double slope);
-std::function<double(double)> blackBodySpectrum(double normalization, double temperature);
+std::function<double(double)> powerLaw(double normalization, double slope);
+std::function<double(double)> bbodyrad(double normalization, double temperature);
 
 #endif // IMAGEGENERATORS_H

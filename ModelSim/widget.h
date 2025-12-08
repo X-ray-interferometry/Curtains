@@ -1,6 +1,8 @@
 #ifndef WIDGET_H
 #define WIDGET_H
 
+#include "RenderWindow.h"
+
 #include <QWidget>
 #include <QLabel>
 #include <QComboBox>
@@ -10,6 +12,8 @@
 #include <QGraphicsScene>
 #include <QListWidget>
 #include <QPainterPath>
+#include <QImage>
+#include <memory>
 
 //extern "C" {
 //    void reltrans(unsigned char* imageData, int width, int height);
@@ -38,13 +42,11 @@ public slots:
     void zoomIn();  // Zoom in the image
     void zoomOut(); // Zoom out the image
     void toggleLayerVisibility(QListWidgetItem *item); // Toggle layer visibility
-    void saveImage(); // Save the current image
     void clearModel();
 
 private:
     QComboBox *modelSelector;
     QPushButton *generateButton;
-    QPushButton *saveButton;
     QPushButton *clearButton;
     QSlider *slider;
     QSlider *lowRangeSlider;
@@ -55,17 +57,19 @@ private:
     QListWidget *layersList; // List widget to display layers
     QPixmap currentPixmap; // Stores the current image being drawn on
     QPoint lastPoint;      // Tracks the last point for drawing
-    QPainterPath drawingPath; // Stores the vectorized lines
-    QGraphicsPathItem *drawingPathItem; // Item to represent the drawn paths
     QList<PathSpectrum> pathSpectra; // List of paths and their spectrum functions
     bool isDrawing = false; // Tracks whether the user is currently drawing
     std::function<double(double)> currentSpectrumFunction; // Store the currently selected spectrum function
+
+    std::unique_ptr<RenderWindow> renderWindow; // Use a smart pointer
 
     void resetView();  // Reset view to full image
     void addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction = nullptr);
     void addPathWithSpectrum(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
     void setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction);
     double evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, double low, double high, double step);
+
+    QImage renderStackedImage(); // Declare the function here
 
     // Placeholder C++ functions representing Fortran subroutines
     // In a real app, these would be `extern "C"` declarations

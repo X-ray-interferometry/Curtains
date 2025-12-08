@@ -18,8 +18,9 @@ public:
 
 private:
     QComboBox *spectrumSelector;
-    QDoubleSpinBox *normalizationSpinBox;
+    QDoubleSpinBox *slopeNormalizationSpinBox; // For power law
     QDoubleSpinBox *slopeSpinBox; // For power law
+    QDoubleSpinBox *bbodyradNormalizationSpinBox; // For black body
     QDoubleSpinBox *temperatureSpinBox; // For black body
 
     std::function<double(double)> selectedSpectrum;

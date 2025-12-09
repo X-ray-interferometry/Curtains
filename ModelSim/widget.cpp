@@ -1,7 +1,7 @@
 #include "Widget.h"
 #include "Models.h"
-#include "SpectrumDialog.h"
-#include "ModelDefinitionDialog.h"
+#include "Dialogs/SpectrumDialog.h"
+#include "Dialogs/ModelDefinitionDialog.h"
 #include "RenderWindow.h"
 
 #include <QImage>
@@ -121,8 +121,8 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     layersList->setAlternatingRowColors(true);
 
     modelSelector = new QComboBox(this);
-    modelSelector->addItem("Blank");
-    modelSelector->addItem("Sine Wave");
+    modelSelector->addItem("Disk");
+    modelSelector->addItem("Disk with inner shape");
     modelSelector->addItem("Circle");
     modelSelector->addItem("Reltrans");
     modelSelector->setToolTip("Select Model");
@@ -241,16 +241,37 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
         if (modelDefDialog.exec() == QDialog::Accepted) {
             // Retrieve model parameters from the dialog
             parameters = modelDefDialog.getParameters();
-            if (modelType == "Sine Wave") {
-                amplitude = parameters["Amplitude"].toDouble();
-                frequency = parameters["Frequency"].toDouble();
-                qDebug() << "Sine Wave parameters - Amplitude:" << amplitude << ", Frequency:" << frequency;
+            if (modelType == "Disk with inner shape") {
+                qDebug() << "Disk with inner shape parameters retrieved.";
+                shapeType = parameters["InnerShape"].toString();
+                if (shapeType == "Circle") {
+                    qDebug() << "Inner shape is Circle with radius:" << parameters["Radius"].toDouble();
+                    radius = parameters["Radius"].toDouble();
+                } else if (shapeType == "Rectangle") {
+                    qDebug() << "Inner shape is Rectangle with width:" << parameters["Width"].toDouble()
+                             << "and height:" << parameters["Height"].toDouble();
+                    width = parameters["Width"].toDouble();
+                    height = parameters["Height"].toDouble();
+                }
+                centerX = parameters["CenterX"].toDouble();
+                centerY = parameters["CenterY"].toDouble();
+                innerRadius = parameters["InnerRadius"].toDouble();
+                outerRadius = parameters["OuterRadius"].toDouble();
+                inclination = parameters["Inclination"].toDouble();
+                qDebug() << "Disk with inner shape parameters - Amplitude:" << amplitude << ", Frequency:" << frequency;
             } else if (modelType == "Circle") {
                 radius = parameters["Radius"].toDouble();
-                centerX = parameters["CenterX"].toInt();
-                centerY = parameters["CenterY"].toInt();
+                centerX = parameters["CenterX"].toDouble();
+                centerY = parameters["CenterY"].toDouble();
                 qDebug() << "Circle parameters - Radius:" << radius << ", CenterX:" << centerX << ", CenterY:" << centerY;
-            }
+            } else if (modelType == "Disk") {
+                centerX = parameters["CenterX"].toDouble();
+                centerY = parameters["CenterY"].toDouble();
+                innerRadius = parameters["InnerRadius"].toDouble();
+                outerRadius = parameters["OuterRadius"].toDouble();
+                inclination = parameters["Inclination"].toDouble();
+                qDebug() << "Disk parameters - InnerRadius:" << innerRadius << ", OuterRadius:" << outerRadius << ", Inclination:" << inclination;
+            } 
         }
     });
     connect(generateButton, &QPushButton::clicked, [this, spectrumDialog]() {
@@ -294,17 +315,26 @@ void Widget::updateImage() {
     qDebug() << "Updating image with model:" << modelSelector->currentText();
 
     QPainterPath modelPath;
+    QPainterPath innerShapePath;
     QColor fillColor;
 
     int selectedIndex = modelSelector->currentIndex();
     switch (selectedIndex) {
-        case 0: // Blank
-            blankImage(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT);
-            fillColor = Qt::transparent; // No fill for blank image
+        case 0: // Disk
+            disk(modelPath, centerX, centerY, innerRadius, outerRadius, inclination);
+            fillColor = Qt::red; // Fill for disk
             break;
-        case 1: // Sine Wave
-            generateSineWave(modelPath, IMAGE_WIDTH, IMAGE_HEIGHT, amplitude, frequency);
-            fillColor = Qt::transparent; // No fill for sine wave
+        case 1: // disk with inner shape
+            // Define the inner shape function based on parameters
+            if (shapeType == "Circle") {
+                qDebug() << "Inner shape is Circle with radius:" << radius;
+                circle(innerShapePath, centerX, centerY, radius);
+            } else if (shapeType == "Rectangle") {
+                qDebug() << "Inner shape is Rectangle with width:" << width << "and height:" << height;
+                rectangle(innerShapePath, centerX, centerY, width, height);
+            }
+            diskInnerShape(modelPath, centerX, centerY, innerRadius, outerRadius, inclination, innerShapePath);
+            fillColor = Qt::red; // Fill for disk with inner shape
             break;
         case 2: // Circle
             circle(modelPath, centerX, centerY, radius);
@@ -327,10 +357,19 @@ void Widget::updateImage() {
 // Model Path Functions
 void Widget::addModelPathItem(const QPainterPath &path, const QColor &fillColor, std::function<double(double)> spectrumFunction) {
     QGraphicsPathItem *modelPathItem = new QGraphicsPathItem(path);
-    modelPathItem->setPen(Qt::NoPen); // No outline
+    modelPathItem->setPen(Qt::NoPen); // Outline
     modelPathItem->setBrush(QBrush(fillColor)); // Set the fill color
     graphicsScene->addItem(modelPathItem); // Add the model path to the scene
     qDebug() << "Model path item added to graphics scene.";
+
+    // Dynamically adjust the scene rectangle to fit all paths
+    QRectF combinedBoundingRect;
+    for (const auto &item : graphicsScene->items()) {
+        if (auto pathItem = qgraphicsitem_cast<QGraphicsPathItem *>(item)) {
+            combinedBoundingRect = combinedBoundingRect.united(pathItem->path().boundingRect());
+        }
+    }
+    graphicsScene->setSceneRect(combinedBoundingRect);
 
     // Add the model layer to the layers list
     QListWidgetItem *modelLayerItem = new QListWidgetItem("[Visible] " + modelSelector->currentText());
@@ -584,6 +623,8 @@ void Widget::handleSingleSliderValueChanged(int value) {
 
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
         qDebug() << "Evaluating spectrum for energy:" << energy;
+        QColor originalColor = pathSpectrum.pathItem->brush().color();
+        qDebug() << "Original color:" << originalColor;
         double brightness = pathSpectrum.spectrumFunction(energy); // Get brightness from spectrum function
         if (logScale) {
             brightness = log10(1.0 + brightness); // Apply log scale if enabled
@@ -594,16 +635,17 @@ void Widget::handleSingleSliderValueChanged(int value) {
             brightness /= pathSpectrum.maxBrightness;
         }
         else if (pathSpectrum.maxBrightness > 0.0 && logScale) {
-            double logMax = log10(1.0 + pathSpectrum.maxBrightness);
+            double logMax = log10(1e-11 + pathSpectrum.maxBrightness);
             brightness /= logMax;
         }
         
         qDebug() << "Normalized brightness:" << brightness;
         brightness = qBound(0.0, brightness, 1.0); // Clamp brightness to [0.0, 1.0]
         qDebug() << "Clamped brightness:" << brightness;
-        QColor color = QColor::fromHsvF(0.6, 1.0, brightness); // Map brightness to a color (e.g., blue spectrum)
-        qDebug() << "Mapped color:" << color;
-        pathSpectrum.pathItem->setBrush(QBrush(color)); // Update the path's color
+        QColor modifiedColor = originalColor;
+        modifiedColor.setHsvF(originalColor.hueF(), originalColor.saturationF(), brightness);
+        qDebug() << "Modified color:" << modifiedColor;
+        pathSpectrum.pathItem->setBrush(QBrush(modifiedColor)); // Update the path's color
         qDebug() << "Updated path item brush.";
     }
 }
@@ -618,11 +660,13 @@ void Widget::handleDoubleSliderRangeChanged(double low, double high) {
     double energy_range = (energy_low + energy_high) / 2.0;
 
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
+        QColor originalColor = pathSpectrum.pathItem->brush().color();
+        qDebug() << "Original color:" << originalColor;
         double brightnessSum = evaluateSpectrumOverRange(pathSpectrum, energy_low, energy_high, step);
         double totalBrightness = 0.0;
         if (logScale) {
-            brightnessSum = log10(1.0 + brightnessSum); // Apply log scale if enabled
-            totalBrightness = log10(1.0 + pathSpectrum.totalBrightness);
+            brightnessSum = log10(1e-11 + brightnessSum); // Apply log scale if enabled
+            totalBrightness = log10(1e-11 + pathSpectrum.totalBrightness);
         }
         else {
             totalBrightness = pathSpectrum.totalBrightness;
@@ -630,8 +674,11 @@ void Widget::handleDoubleSliderRangeChanged(double low, double high) {
         brightnessSum /= totalBrightness; // Normalize by total brightness
         double normalizedBrightness = qBound(0.0, brightnessSum, 1.0); // Clamp brightness to [0.0, 1.0]
 
-        QColor color = QColor::fromHsvF(0.6, 1.0, normalizedBrightness); // Map brightness to a color (e.g., blue spectrum)
-        pathSpectrum.pathItem->setBrush(QBrush(color)); // Update the path's color
+        QColor modifiedColor = originalColor;
+        modifiedColor.setHsvF(originalColor.hueF(), originalColor.saturationF(), normalizedBrightness);
+        qDebug() << "Modified color:" << modifiedColor;
+        pathSpectrum.pathItem->setBrush(QBrush(modifiedColor)); // Update the path's color
+        qDebug() << "Updated path item brush.";
     }
 }
 

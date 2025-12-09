@@ -6,8 +6,12 @@
 
 // Image Functions
 void generateSineWave(QPainterPath &path, int width, int height, double amplitude, double frequency);
-void blankImage(QPainterPath &path, int width, int height);
-void circle(QPainterPath &path, int centerX, int centerY, int radius);
+void circle(QPainterPath &path, double centerX, double centerY, double radius);
+void rectangle(QPainterPath &path, double centerX, double centerY, double width, double height);
+void disk(QPainterPath &path, double centerX, double centerY, double innerRadius, double outerRadius, double inclination);
+void diskInnerShape(QPainterPath &path, double centerX, double centerY, 
+                    double innerRadius, double outerRadius, double inclination,
+                    QPainterPath &innerShapePath);
 void callReltrans(unsigned char* imageData, int width, int height);
 
 // Spectrum functions

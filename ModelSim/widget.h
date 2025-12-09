@@ -64,9 +64,15 @@ private:
     double amplitude; // Amplitude
     double frequency; // Frequency
     double radius;    // Radius for circle
-    int centerX;   // Center X for circle
-    int centerY;   // Center Y for circle
+    double innerRadius; // Inner radius for disk
+    double outerRadius; // Outer radius for disk
+    double inclination; // Inclination for disk
+    double centerX;   // Center X for circle
+    double centerY;   // Center Y for circle
+    double width;   // Width for rectangle
+    double height;   // Height for rectangle
     int logScale = 0;   // Log scale flag 0 == linear, 1 == log
+    QString shapeType; // Inner shape type for disk
 
     QMap<QString, QVariant> parameters; // Store model parameters   
 

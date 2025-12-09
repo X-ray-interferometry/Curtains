@@ -18,12 +18,12 @@ set(SOURCES
     Widget.h
     Models.cpp
     Models.h
-    SpectrumDialog.cpp
-    SpectrumDialog.h
+    Dialogs/SpectrumDialog.cpp
+    Dialogs/SpectrumDialog.h
+    Dialogs/ModelDefinitionDialog.cpp
+    Dialogs/ModelDefinitionDialog.h
     RenderWindow.cpp
     RenderWindow.h
-    ModelDefinitionDialog.cpp
-    ModelDefinitionDialog.h
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)

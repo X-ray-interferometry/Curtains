@@ -16,17 +16,96 @@ void generateSineWave(QPainterPath &path, int width, int height, double amplitud
     }
 }
 
-void blankImage(QPainterPath &path, int width, int height) {
-    // Generates a blank image (no drawing)
-    qDebug() << "Generating blank image.";
-}
-
-void circle(QPainterPath &path, int centerX, int centerY, int radius) {
+// Basic shapes
+void circle(QPainterPath &path, double centerX, double centerY, double radius) {
     path.setFillRule(Qt::WindingFill);
     qDebug() << "Generating circle at (" << centerX << "," << centerY << ") with radius" << radius;
     qDebug() << "Fill rule:" << path.fillRule();
     path.addEllipse(centerX - radius, centerY - radius, radius * 2, radius * 2);
 }
+
+void rectangle(QPainterPath &path, double centerX, double centerY, double width, double height) {
+    path.setFillRule(Qt::WindingFill);
+    qDebug() << "Generating rectangle at (" << centerX << "," << centerY << ") with width" << width << " and height" << height;
+    qDebug() << "Fill rule:" << path.fillRule();
+    path.addRect(centerX - width / 2, centerY - height / 2, width, height);
+}
+
+// Disk shapes
+void disk(QPainterPath &path, double centerX, double centerY, double innerRadius, double outerRadius, double inclination) {
+    QPainterPath diskPath;
+    diskPath.setFillRule(Qt::OddEvenFill);
+    qDebug() << "Generating disk at (" << centerX << "," << centerY << ") with inner radius" << innerRadius << " and outer radius" << outerRadius;
+    qDebug() << "Fill rule:" << diskPath.fillRule();
+
+    double scaleY = std::cos(inclination * M_PI / 180.0);
+
+    // Add outer ellipse
+    QPainterPath outerEllipse;
+    outerEllipse.addEllipse(centerX - outerRadius, centerY - (outerRadius * scaleY), outerRadius * 2, outerRadius * 2 * scaleY);
+    diskPath.addPath(outerEllipse);
+
+    // Subtract inner ellipse
+    QPainterPath innerEllipse;
+    innerEllipse.addEllipse(centerX - innerRadius, centerY - (innerRadius * scaleY), innerRadius * 2, innerRadius * 2 * scaleY);
+    diskPath.addPath(innerEllipse);
+
+    // Combine paths
+    path.addPath(diskPath);
+    qDebug() << "Disk path generated with inclination" << inclination << "degrees.";
+}
+
+void diskInnerShape(QPainterPath &path, double centerX, double centerY, 
+                    double innerRadius, double outerRadius, double inclination,
+                    QPainterPath &innerShapePath) {
+    qDebug() << "Generating disk at (" << centerX << "," << centerY << ") with inner radius" << innerRadius
+             << " and outer radius" << outerRadius << " at inclination" << inclination << " degrees";
+
+    // Calculate the vertical scaling factor based on the inclination
+    double scaleY = std::cos(inclination * M_PI / 180.0); // Convert inclination to radians
+    qDebug() << "Vertical scaling factor:" << scaleY;
+
+    QPainterPath totalModelPath;
+    // Generate the back half of the disk (outer arc and inner arc)
+    QPainterPath backPath;
+    backPath.setFillRule(Qt::OddEvenFill);
+
+    // Outer arc (back half)
+    QRectF outerRect(centerX - outerRadius, centerY - outerRadius * scaleY, outerRadius * 2, outerRadius * 2 * scaleY);
+    backPath.arcTo(outerRect, 180, 180); // Draw the back half of the outer arc
+
+    // Inner arc (back half)
+    QRectF innerRect(centerX - innerRadius, centerY - innerRadius * scaleY, innerRadius * 2, innerRadius * 2 * scaleY);
+    backPath.arcTo(innerRect, 0, -180); // Draw the back half of the inner arc (reverse direction)
+
+    backPath.closeSubpath(); // Close the back path
+    totalModelPath.addPath(backPath);
+
+    // Combine the back path with the inner shape
+    innerShapePath.setFillRule(Qt::WindingFill);
+    totalModelPath.addPath(innerShapePath);
+
+    // Generate the front half of the disk (outer arc and inner arc)
+    QPainterPath frontPath;
+    frontPath.setFillRule(Qt::OddEvenFill);
+
+    // Outer arc (front half)
+    frontPath.arcTo(outerRect, 0, 180); // Draw the front half of the outer arc
+
+    // Inner arc (front half)
+    frontPath.arcTo(innerRect, 180, -180); // Draw the front half of the inner arc (reverse direction)
+
+    frontPath.closeSubpath(); // Close the front path
+    frontPath.setFillRule(Qt::OddEvenFill);
+
+    // Combine the front and back paths into the main path
+    totalModelPath.addPath(frontPath);
+    path.addPath(totalModelPath);
+
+    qDebug() << "Disk paths generated with inclination" << inclination << " degrees.";
+}
+
+// Complex external models
 
 void callReltrans(unsigned char* imageData, int width, int height) {
     // Calls reltrans.

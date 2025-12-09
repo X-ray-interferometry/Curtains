@@ -1,5 +1,5 @@
 #include "SpectrumDialog.h"
-#include "Models.h"
+#include "../Models.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QStackedWidget>

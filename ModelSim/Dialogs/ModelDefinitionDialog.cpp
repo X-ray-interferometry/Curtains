@@ -128,6 +128,30 @@ void ModelDefinitionDialog::setupFields() {
                 qDebug() << "Inner shape configured:" << selectedShape << innerShapeParams;
             }
         });
+    } else if (modelType == "Ellipse") {
+        QDoubleSpinBox *radiusXField = new QDoubleSpinBox(this);
+        radiusXField->setRange(1.0, 500.0);
+        radiusXField->setValue(50.0);
+        formLayout->addRow("Radius X:", radiusXField);
+        inputFields["RadiusX"] = radiusXField;
+
+        QDoubleSpinBox *radiusYField = new QDoubleSpinBox(this);
+        radiusYField->setRange(1.0, 500.0);
+        radiusYField->setValue(30.0);
+        formLayout->addRow("Radius Y:", radiusYField);
+        inputFields["RadiusY"] = radiusYField;
+
+        QDoubleSpinBox *centerXField = new QDoubleSpinBox(this);
+        centerXField->setRange(0.0, 400.0);
+        centerXField->setValue(200.0);
+        formLayout->addRow("Center X:", centerXField);
+        inputFields["CenterX"] = centerXField;
+
+        QDoubleSpinBox *centerYField = new QDoubleSpinBox(this);
+        centerYField->setRange(0.0, 400.0);
+        centerYField->setValue(200.0);
+        formLayout->addRow("Center Y:", centerYField);
+        inputFields["CenterY"] = centerYField;
     }
     // Add more fields for other models as needed
 }

@@ -3,6 +3,7 @@
 #include "Dialogs/SpectrumDialog.h"
 #include "Dialogs/ModelDefinitionDialog.h"
 #include "RenderWindow.h"
+#include "Widgets/ColorScaleWidget.h"
 
 #include <QImage>
 #include <QPixmap>
@@ -36,11 +37,19 @@ SingleSliderWidget::SingleSliderWidget(QWidget *parent) : QWidget(parent) {
 
     // Connect slider and spin box
     connect(slider, &QSlider::valueChanged, [this](int value) {
-        sliderValueBox->setValue(value * 0.1);
-        emit valueChanged(value * 0.1);
+        qDebug() << "Slider changed to:" << value*0.1;
+        double scaledValue = value * 0.1;
+        sliderValueBox->blockSignals(true);
+        sliderValueBox->setValue(scaledValue); // Update the spin box
+        sliderValueBox->blockSignals(false);
+
+        emit valueChanged(scaledValue);
     });
     connect(sliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
-        slider->setValue(static_cast<int>(value * 10));
+        qDebug() << "Spin box changed to:" << value;
+        slider->blockSignals(true);
+        slider->setValue(static_cast<int>(value * 10)); // Scale back to integer for the slider
+        slider->blockSignals(false);
     });
 
     // Layout
@@ -75,7 +84,8 @@ DoubleSliderWidget::DoubleSliderWidget(QWidget *parent) : QWidget(parent) {
 
     // Connect sliders and spin boxes
     connect(lowSlider, &QSlider::valueChanged, [this](int value) {
-        lowSliderValueBox->setValue(value * 0.1);
+        double scaledValue = value * 0.1;
+        lowSliderValueBox->setValue(scaledValue);
         emit rangeChanged(lowSliderValueBox->value(), highSliderValueBox->value());
     });
     connect(lowSliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
@@ -84,8 +94,10 @@ DoubleSliderWidget::DoubleSliderWidget(QWidget *parent) : QWidget(parent) {
     });
 
     connect(highSlider, &QSlider::valueChanged, [this](int value) {
-        highSliderValueBox->setValue(value * 0.1);
-        emit rangeChanged(lowSliderValueBox->value(), highSliderValueBox->value());
+        double scaledValue = value * 0.1;
+        qDebug() << "High slider changed to:" << scaledValue;
+        highSliderValueBox->setValue(scaledValue);
+        emit rangeChanged(lowSliderValueBox->value(), scaledValue);
     });
     connect(highSliderValueBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [this](double value) {
         highSlider->setValue(static_cast<int>(value * 10));
@@ -124,6 +136,7 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     modelSelector->addItem("Disk");
     modelSelector->addItem("Disk with inner shape");
     modelSelector->addItem("Circle");
+    modelSelector->addItem("Ellipse");
     modelSelector->addItem("Reltrans");
     modelSelector->setToolTip("Select Model");
 
@@ -176,7 +189,14 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
         sliderLayout->setCurrentIndex(index); // Switch between slider layouts
     });
 
+    colorScaleWidget = new ColorScaleWidget(this);
+
+    double minBrightness = 0.0; // Replace with actual minimum brightness
+    double maxBrightness = 1.0; // Replace with actual maximum brightness
+    colorScaleWidget->setBrightnessRange(minBrightness, maxBrightness);
+
     // Horizontal layout for graphics view and layers list
+    QVBoxLayout *totalViewLayout = new QVBoxLayout();
     QHBoxLayout *canvasLayout = new QHBoxLayout();
     canvasLayout->addWidget(graphicsView);
     QVBoxLayout *layersLayout = new QVBoxLayout();
@@ -184,6 +204,8 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     layersLayout->addWidget(layersList,10);
     layersLayout->addWidget(logButton,1);
     canvasLayout->addLayout(layersLayout);
+    totalViewLayout->addLayout(canvasLayout,9);
+    totalViewLayout->addWidget(colorScaleWidget,1);
 
     // Spectrum Dialog
     SpectrumDialog *spectrumDialog = new SpectrumDialog(this);
@@ -214,10 +236,10 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
     // Arrange Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(modelLayout, 1);
-    mainLayout->addLayout(buttonLayout);
-    mainLayout->addLayout(canvasLayout, 5);
+    mainLayout->addLayout(buttonLayout, 1);
+    mainLayout->addLayout(totalViewLayout, 8);
     mainLayout->addLayout(energySliderLayout, 1);
-    mainLayout->addWidget(renderImageButton);
+    mainLayout->addWidget(renderImageButton, 1);
 
     setLayout(mainLayout);
     setWindowTitle("Image");
@@ -271,9 +293,14 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
                 outerRadius = parameters["OuterRadius"].toDouble();
                 inclination = parameters["Inclination"].toDouble();
                 qDebug() << "Disk parameters - InnerRadius:" << innerRadius << ", OuterRadius:" << outerRadius << ", Inclination:" << inclination;
-            } 
+            } else if (modelType == "Ellipse") {
+                radiusX = parameters["RadiusX"].toDouble();
+                radiusY = parameters["RadiusY"].toDouble();
+                centerX = parameters["CenterX"].toDouble();
+                centerY = parameters["CenterY"].toDouble();
+                qDebug() << "Ellipse parameters - RadiusX:" << radiusX << ", RadiusY:" << radiusY << ", CenterX:" << centerX << ", CenterY:" << centerY;
         }
-    });
+    }});
     connect(generateButton, &QPushButton::clicked, [this, spectrumDialog]() {
         if (spectrumDialog->exec() == QDialog::Accepted) {
             currentSpectrumFunction = spectrumDialog->getSelectedSpectrum();
@@ -322,7 +349,6 @@ void Widget::updateImage() {
     switch (selectedIndex) {
         case 0: // Disk
             disk(modelPath, centerX, centerY, innerRadius, outerRadius, inclination);
-            fillColor = Qt::red; // Fill for disk
             break;
         case 1: // disk with inner shape
             // Define the inner shape function based on parameters
@@ -334,13 +360,14 @@ void Widget::updateImage() {
                 rectangle(innerShapePath, centerX, centerY, width, height);
             }
             diskInnerShape(modelPath, centerX, centerY, innerRadius, outerRadius, inclination, innerShapePath);
-            fillColor = Qt::red; // Fill for disk with inner shape
             break;
         case 2: // Circle
             circle(modelPath, centerX, centerY, radius);
-            fillColor = Qt::blue; // Fill the circle with blue
             break;
-        case 3: // Reltrans (placeholder)
+        case 3: // Ellipse
+            ellipse(modelPath, centerX, centerY, radiusX, radiusY);
+            break;
+        case 4: // Reltrans (placeholder)
             qWarning() << "Reltrans model not implemented for vectorized graphics.";
             return;
         default:
@@ -401,6 +428,10 @@ void Widget::addPathWithSpectrum(QGraphicsPathItem *pathItem, std::function<doub
 
     pathSpectra.append({pathItem, spectrumFunction, maxBrightness, totalBrightness});
     qDebug() << "Added path with spectrum. Max brightness:" << maxBrightness << ". Total brightness:" << totalBrightness << ". Total paths:" << pathSpectra.size();
+    globalMaxBrightness = std::max(maxBrightness, globalMaxBrightness);
+    globalTotalMaxBrightness = std::max(totalBrightness, globalTotalMaxBrightness);
+    qDebug() << "Updated global max brightness to:" << globalMaxBrightness;
+    qDebug() << "Updated global total max brightness to:" << globalTotalMaxBrightness;
 }
 
 void Widget::setPathSpectrumFunction(QGraphicsPathItem *pathItem, std::function<double(double)> spectrumFunction) {
@@ -616,38 +647,34 @@ void Widget::editLayerSpectrum(QListWidgetItem *item) {
 
 // Slider functionality
 
-void Widget::handleSingleSliderValueChanged(int value) {
+void Widget::handleSingleSliderValueChanged(double value) {
     qDebug() << "Slider value changed to:" << value;
 
     double energy = value * 0.1; // Convert slider value to energy (0.0 to 10.0)
 
+    // Now, normalize and update the brightness of each path
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
-        qDebug() << "Evaluating spectrum for energy:" << energy;
-        QColor originalColor = pathSpectrum.pathItem->brush().color();
-        qDebug() << "Original color:" << originalColor;
-        double brightness = pathSpectrum.spectrumFunction(energy); // Get brightness from spectrum function
+        double brightness = pathSpectrum.spectrumFunction(energy);
         if (logScale) {
-            brightness = log10(1.0 + brightness); // Apply log scale if enabled
-            qDebug() << "Log-scaled brightness:" << brightness;
+            brightness = log10(1e-11 + brightness); // Apply log scale if enabled
         }
-        qDebug() << "Calculated brightness:" << brightness;
-        if (pathSpectrum.maxBrightness > 0.0 && !logScale) {
-            brightness /= pathSpectrum.maxBrightness;
-        }
-        else if (pathSpectrum.maxBrightness > 0.0 && logScale) {
-            double logMax = log10(1e-11 + pathSpectrum.maxBrightness);
-            brightness /= logMax;
-        }
-        
-        qDebug() << "Normalized brightness:" << brightness;
-        brightness = qBound(0.0, brightness, 1.0); // Clamp brightness to [0.0, 1.0]
-        qDebug() << "Clamped brightness:" << brightness;
+
+        // Normalize brightness using the maximum brightness
+        double normalizedBrightness = brightness / globalMaxBrightness;
+        normalizedBrightness = qBound(0.0, normalizedBrightness, 1.0); // Clamp brightness to [0.0, 1.0]
+
+        qDebug() << "Normalized brightness:" << normalizedBrightness;
+
+        // Update the color based on the normalized brightness
+        QColor originalColor = pathSpectrum.pathItem->brush().color();
         QColor modifiedColor = originalColor;
-        modifiedColor.setHsvF(originalColor.hueF(), originalColor.saturationF(), brightness);
-        qDebug() << "Modified color:" << modifiedColor;
+        modifiedColor.setHsvF(originalColor.hueF(), originalColor.saturationF(), normalizedBrightness);
         pathSpectrum.pathItem->setBrush(QBrush(modifiedColor)); // Update the path's color
-        qDebug() << "Updated path item brush.";
+        qDebug() << "Updated path item brush with color:" << modifiedColor;
     }
+
+    colorScaleWidget->setBrightnessRange(0.0, globalMaxBrightness);
+    qDebug() << "Updated color scale with min brightness:" << 0.0 << "and max brightness:" << globalMaxBrightness;
 }
 
 void Widget::handleDoubleSliderRangeChanged(double low, double high) {
@@ -656,30 +683,32 @@ void Widget::handleDoubleSliderRangeChanged(double low, double high) {
     double energy_low = low * 0.1; // Convert slider value to energy (0.0 to 10.0)
     double energy_high = high * 0.1;
     double step = 0.1; // Define the step size for the energy range
+    double maxNormalizedBrightness = 0.0;
 
-    double energy_range = (energy_low + energy_high) / 2.0;
-
+    // Now, normalize and update the brightness of each path
     for (const PathSpectrum &pathSpectrum : pathSpectra) {
-        QColor originalColor = pathSpectrum.pathItem->brush().color();
-        qDebug() << "Original color:" << originalColor;
         double brightnessSum = evaluateSpectrumOverRange(pathSpectrum, energy_low, energy_high, step);
-        double totalBrightness = 0.0;
         if (logScale) {
-            brightnessSum = log10(1e-11 + brightnessSum); // Apply log scale if enabled
-            totalBrightness = log10(1e-11 + pathSpectrum.totalBrightness);
+            brightnessSum = log10(1.0 + brightnessSum); // Apply log scale if enabled
         }
-        else {
-            totalBrightness = pathSpectrum.totalBrightness;
-        }
-        brightnessSum /= totalBrightness; // Normalize by total brightness
-        double normalizedBrightness = qBound(0.0, brightnessSum, 1.0); // Clamp brightness to [0.0, 1.0]
 
+        // Normalize brightness using the maximum brightness
+        double normalizedBrightness = brightnessSum / globalTotalMaxBrightness;
+        normalizedBrightness = qBound(0.0, normalizedBrightness, 1.0); // Clamp brightness to [0.0, 1.0]
+        maxNormalizedBrightness = std::max(maxNormalizedBrightness, normalizedBrightness);
+        qDebug() << "Normalized brightness:" << normalizedBrightness;
+
+        // Update the color based on the normalized brightness
+        QColor originalColor = pathSpectrum.pathItem->brush().color();
         QColor modifiedColor = originalColor;
         modifiedColor.setHsvF(originalColor.hueF(), originalColor.saturationF(), normalizedBrightness);
-        qDebug() << "Modified color:" << modifiedColor;
         pathSpectrum.pathItem->setBrush(QBrush(modifiedColor)); // Update the path's color
-        qDebug() << "Updated path item brush.";
+        qDebug() << "Updated path item brush with color:" << modifiedColor;
     }
+
+    // Update the color scale widget
+    colorScaleWidget->setBrightnessRange(0.0, maxNormalizedBrightness);
+    qDebug() << "Updated color scale with range: 0.0 to" << maxNormalizedBrightness;
 }
 
 std::vector<double> generateEnergyRange(double low, double high, double step) {
@@ -701,6 +730,4 @@ double Widget::evaluateSpectrumOverRange(const PathSpectrum &pathSpectrum, doubl
     return sum;
 }
 
-// Log scale toggle
-
-
+// Visual aids

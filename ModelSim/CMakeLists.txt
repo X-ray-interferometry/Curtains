@@ -24,6 +24,8 @@ set(SOURCES
     Dialogs/ModelDefinitionDialog.h
     RenderWindow.cpp
     RenderWindow.h
+    Widgets/ColorScaleWidget.cpp
+    Widgets/ColorScaleWidget.h
 )
 
 # Tell Qt to process the header for moc (Meta-Object Compiler)

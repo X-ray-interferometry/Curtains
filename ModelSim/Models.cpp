@@ -24,6 +24,13 @@ void circle(QPainterPath &path, double centerX, double centerY, double radius) {
     path.addEllipse(centerX - radius, centerY - radius, radius * 2, radius * 2);
 }
 
+void ellipse(QPainterPath &path, double centerX, double centerY, double radiusX, double radiusY) {
+    path.setFillRule(Qt::WindingFill);
+    qDebug() << "Generating ellipse at (" << centerX << "," << centerY << ") with radiusX" << radiusX << " and radiusY" << radiusY;
+    qDebug() << "Fill rule:" << path.fillRule();
+    path.addEllipse(centerX - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
+}
+
 void rectangle(QPainterPath &path, double centerX, double centerY, double width, double height) {
     path.setFillRule(Qt::WindingFill);
     qDebug() << "Generating rectangle at (" << centerX << "," << centerY << ") with width" << width << " and height" << height;

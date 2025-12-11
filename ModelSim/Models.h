@@ -7,6 +7,7 @@
 // Image Functions
 void generateSineWave(QPainterPath &path, int width, int height, double amplitude, double frequency);
 void circle(QPainterPath &path, double centerX, double centerY, double radius);
+void ellipse(QPainterPath &path, double centerX, double centerY, double radiusX, double radiusY);
 void rectangle(QPainterPath &path, double centerX, double centerY, double width, double height);
 void disk(QPainterPath &path, double centerX, double centerY, double innerRadius, double outerRadius, double inclination);
 void diskInnerShape(QPainterPath &path, double centerX, double centerY, 

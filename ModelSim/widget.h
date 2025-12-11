@@ -2,6 +2,7 @@
 #define WIDGET_H
 
 #include "RenderWindow.h"
+#include "Widgets/ColorScaleWidget.h"
 
 #include <QWidget>
 #include <QLabel>
@@ -35,7 +36,7 @@ public:
 
 private slots:
     void updateImage(); // Slot to handle button click and image update
-    void handleSingleSliderValueChanged(int value); // Slot to handle slider value changes
+    void handleSingleSliderValueChanged(double value); // Slot to handle slider value changes
     void handleDoubleSliderRangeChanged(double low, double high); // Slot to handle double slider range changes
 
 public slots:
@@ -58,6 +59,7 @@ private:
     QPixmap currentPixmap; // Stores the current image being drawn on
     QPoint lastPoint;      // Tracks the last point for drawing
     QList<PathSpectrum> pathSpectra; // List of paths and their spectrum functions
+    ColorScaleWidget *colorScaleWidget; // Declare the color scale widget
 
     // Rendering functionality
     std::function<double(double)> currentSpectrumFunction; // Store the currently selected spectrum function
@@ -69,6 +71,8 @@ private:
     double inclination; // Inclination for disk
     double centerX;   // Center X for circle
     double centerY;   // Center Y for circle
+    double radiusX;  // Radius X for ellipse
+    double radiusY;  // Radius Y for ellipse
     double width;   // Width for rectangle
     double height;   // Height for rectangle
     int logScale = 0;   // Log scale flag 0 == linear, 1 == log
@@ -96,6 +100,11 @@ private:
 
     static const int IMAGE_WIDTH = 400;
     static const int IMAGE_HEIGHT = 400;
+    QColor fillColor = Qt::white; // Default fill color
+    double globalMinBrightness = 0.0; // Minimum brightness across all paths
+    double globalMaxBrightness = 0.0; // Maximum brightness across all paths
+    double globalTotalMinBrightness = 0.0; // Total minimum brightness across all paths
+    double globalTotalMaxBrightness = 0.0; // Total maximum brightness across all paths
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

@@ -34,7 +34,7 @@ SpectrumDialog::SpectrumDialog(QWidget *parent) : QDialog(parent) {
     QFormLayout *blackBodyLayout = new QFormLayout(blackBodyForm);
 
     bbodyradNormalizationSpinBox = new QDoubleSpinBox(this);
-    bbodyradNormalizationSpinBox->setRange(0.0, 100.0);
+    bbodyradNormalizationSpinBox->setRange(0.0, 1e6);
     bbodyradNormalizationSpinBox->setValue(1.0);
     bbodyradNormalizationSpinBox->setSingleStep(0.1);
 

@@ -1,0 +1,33 @@
+figure.dpi: 100
+
+text.usetex: True
+font.family: serif
+font.sans-serif: Helvetica
+font.size: 18  
+
+axes.linewidth: 1.0
+
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+xtick.bottom: True
+ytick.left: True
+ytick.right: True
+xtick.major.width: 1.5
+ytick.major.width: 1.5
+xtick.minor.width: 1.0
+ytick.minor.width: 1.0
+xtick.labelsize: 18  
+ytick.labelsize: 18  
+
+axes.facecolor: white
+figure.facecolor: white
+savefig.facecolor: white
+axes.edgecolor: black
+axes.labelcolor: black
+xtick.color: black
+ytick.color: black
+text.color: black
+legend.facecolor: white
+legend.edgecolor: black
+axes.titlecolor: black

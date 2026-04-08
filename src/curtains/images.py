@@ -338,7 +338,7 @@ def generate_from_image(image_path, no_photons, img_scale, energy, energy_spread
     source_counts = np.random.choice(
         np.arange(img_array.size),
         size=no_photons,
-        p=pmf.flatten()    
+        p=pmf.flatten(),    
     )
 
     # generate bkg photons

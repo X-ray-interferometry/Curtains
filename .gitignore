@@ -1,8 +1,4 @@
-__pycache__/
-
-.DS_Store
-/.DS_Store
-
+*.pyc
 .vscode/
 
 ignore/
@@ -13,10 +9,11 @@ random/
 output_data/
 results/
 
-curtains/models/*
-!curtains/models/arf.fits
-!curtains/models/rmf.fits
+src/curtains/models/*
+!src/curtains/models/arf.fits
+!src/curtains/models/rmf.fits
 
 *.egg-info/
 *.pdf
 simulation.py
+src/curtains/version.py

@@ -20,3 +20,4 @@ src/curtains/models/*
 *.egg-info/
 *.pdf
 simulation.py
+src/curtains/version.py

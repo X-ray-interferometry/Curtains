@@ -8,9 +8,22 @@ name = "curtains"
 version = "0.0.1"
 description = "Simulation of X-ray interferometric observations"
 readme = "README.rst"
-requires-python = ">=3.8"
+authors = [
+    { name="Philipp Stoecker", email="p.o.stoecker@uva.nl" },
+]
+requires-python = ">=3.11"
 dependencies = [
-    
+    "numpy~=2.4",
+    "astropy~=7.2",
+    "matplotlib~=3.10.8",
+    "pandas~=3.0.1",
+    "scipy~=1.17.1",
+    "pillow~=12.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff~=0.13.2",
 ]
 
 [tool.setuptools.packages.find]

@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff~=0.13.2",
+    "pytest~=9.0",
 ]
 
 [build-system]
@@ -43,5 +44,8 @@ where = ["src"]
 
 [tool.ruff]
 # Ignore the auto-generated file
-include = ["src/curtains/*.py"]
+include = ["src/curtains/*.py", "tests/*.py"]
 exclude = ["src/curtains/version.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
